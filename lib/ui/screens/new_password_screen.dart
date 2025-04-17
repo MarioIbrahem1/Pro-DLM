@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'signin_screen.dart';
+import 'package:road_helperr/services/api_service.dart';
+import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/ui/widgets/custom_message_dialog.dart';
 
 class NewPasswordScreen extends StatefulWidget {
-  const NewPasswordScreen({super.key});
+  final String email;
+
+  const NewPasswordScreen({
+    super.key,
+    required this.email,
+  });
 
   @override
   _NewPasswordScreenState createState() => _NewPasswordScreenState();
@@ -11,9 +19,10 @@ class NewPasswordScreen extends StatefulWidget {
 
 class _NewPasswordScreenState extends State<NewPasswordScreen>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
 
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -22,7 +31,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
   bool hasSpecialChar = false;
   bool hasNumber = false;
   bool passwordsMatch = false;
-  bool isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -42,9 +50,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
 
   void _validatePassword(String password) {
     setState(() {
-      hasUpperCase = password.contains(RegExp(r'[A-Z]'));
-      hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-      hasNumber = password.contains(RegExp(r'[0-9]'));
       passwordsMatch =
           password == _confirmPasswordController.text && password.isNotEmpty;
     });
@@ -58,21 +63,63 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
   }
 
   bool get isPasswordValid =>
-      hasUpperCase && hasSpecialChar && hasNumber && passwordsMatch;
+      _passwordController.text.isNotEmpty &&
+      _confirmPasswordController.text.isNotEmpty &&
+      passwordsMatch;
 
-  Future<void> _handleResetPassword() async {
+  Future<void> _resetPassword() async {
+    if (_passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
+      NotificationService.showValidationError(
+        context,
+        'Please enter your new password',
+      );
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      NotificationService.showPasswordMismatch(context);
+      return;
+    }
+
     setState(() {
-      isLoading = true;
+      _isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final response = await ApiService.resetPassword(
+        widget.email,
+        _passwordController.text,
+      );
 
-    setState(() {
-      isLoading = false;
-    });
+      if (!mounted) return;
 
-    if (mounted) {
-      _showSuccessDialog();
+      if (response['success'] == true) {
+        NotificationService.showPasswordResetSuccess(
+          context,
+          onConfirm: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const SignInScreen()),
+              (route) => false,
+            );
+          },
+        );
+      } else {
+        NotificationService.showGenericError(
+          context,
+          response['error'] ?? 'Failed to reset password. Please try again.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      NotificationService.showNetworkError(context);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -337,50 +384,33 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     return Container(
       width: double.infinity,
       height: 50,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          if (isPasswordValid)
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-        ],
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       child: isIOS
           ? CupertinoButton(
-              padding: EdgeInsets.zero,
-              color: isPasswordValid
-                  ? CupertinoColors.activeBlue
-                  : CupertinoColors.systemGrey,
+              color: isPasswordValid ? Colors.blue : Colors.grey,
               borderRadius: BorderRadius.circular(12),
-              onPressed:
-                  isPasswordValid && !isLoading ? _handleResetPassword : null,
-              child: isLoading
+              onPressed: isPasswordValid && !_isLoading ? _resetPassword : null,
+              child: _isLoading
                   ? const CupertinoActivityIndicator(
                       color: CupertinoColors.white)
                   : const Text(
                       'Reset Password',
                       style: TextStyle(
-                        color: CupertinoColors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
             )
           : ElevatedButton(
-              onPressed:
-                  isPasswordValid && !isLoading ? _handleResetPassword : null,
+              onPressed: isPasswordValid && !_isLoading ? _resetPassword : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isPasswordValid ? Colors.blue : Colors.grey,
-                elevation: isPasswordValid ? 4 : 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: isLoading
+              child: _isLoading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -392,130 +422,12 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                   : const Text(
                       'Reset Password',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
             ),
     );
-  }
-
-  void _showSuccessDialog() {
-    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
-
-    if (isIOS) {
-      showCupertinoDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => CupertinoAlertDialog(
-          title: const Text('Success!'),
-          content: const Padding(
-            padding: EdgeInsets.only(top: 8.0),
-            child: Text('Password reset successfully'),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  CupertinoPageRoute(
-                    builder: (context) => const SignInScreen(),
-                  ),
-                  (Route<dynamic> route) => false,
-                );
-              },
-              child: const Text('Done'),
-            ),
-          ],
-        ),
-      );
-    } else {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1F3551),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.blue.withOpacity(0.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_outline,
-                    color: Colors.green,
-                    size: 50,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Success!',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Password reset successfully',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 4,
-                    ),
-                    onPressed: () {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (context) => const SignInScreen(),
-                        ),
-                        (Route<dynamic> route) => false,
-                      );
-                    },
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
   }
 
   @override

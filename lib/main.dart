@@ -122,6 +122,7 @@ class _MyAppState extends State<MyApp> {
 
       initialRoute: OnboardingScreen.routeName,
       //initialRoute: HomeScreen.routeName,
+     // initialRoute: OnBoarding.routeName,
     );
   }
 }

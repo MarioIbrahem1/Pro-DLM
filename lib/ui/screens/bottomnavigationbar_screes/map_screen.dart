@@ -10,6 +10,7 @@ import '../../../utils/app_colors.dart';
 import '../ai_welcome_screen.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
+import 'package:road_helperr/services/notification_service.dart';
 
 class MapScreen extends StatefulWidget {
   static const String routeName = "map";
@@ -43,9 +44,10 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Location services are not enabled, show a message to the user
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location services are disabled.')),
+      NotificationService.showError(
+        context: context,
+        title: 'Location Services Disabled',
+        message: 'Please enable location services to use this feature.',
       );
       return;
     }
@@ -54,20 +56,20 @@ class _MapScreenState extends State<MapScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Permissions are denied, show a message to the user
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are denied.')),
+        NotificationService.showError(
+          context: context,
+          title: 'Location Permission Denied',
+          message: 'Please grant location permission to use this feature.',
         );
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      // Permissions are permanently denied, show a message to the user
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Location permissions are permanently denied.'),
-        ),
+      NotificationService.showError(
+        context: context,
+        title: 'Location Permission Permanently Denied',
+        message: 'Please enable location permission in your device settings.',
       );
       return;
     }

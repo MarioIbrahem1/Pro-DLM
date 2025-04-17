@@ -12,6 +12,7 @@ import 'package:road_helperr/utils/app_colors.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import 'notification_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:road_helperr/services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,8 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // لو اليوزر ما اختاروش أي فلتر
     if (selectedKeys.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one service!")),
+      NotificationService.showValidationError(
+        context,
+        'Please select at least one service!',
       );
       return;
     }

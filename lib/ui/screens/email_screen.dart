@@ -3,8 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:road_helperr/ui/screens/signupScreen.dart';
 import 'dart:math' show min;
 import 'constants.dart';
-import 'OTPscreen.dart';
+import 'package:road_helperr/ui/screens/OTPscreen.dart';
 import 'package:road_helperr/services/api_service.dart';
+import 'package:road_helperr/services/notification_service.dart';
 
 class EmailScreen extends StatefulWidget {
   static const String routeName = "emailscreen";
@@ -22,6 +23,8 @@ class _EmailScreenState extends State<EmailScreen>
   late Animation<double> _moveAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  bool _isLoading = false;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -51,57 +54,84 @@ class _EmailScreenState extends State<EmailScreen>
     );
   }
 
-  void _validateAndNavigate() async {
-    final String email = _emailController.text.trim();
-    if (_isValidEmail(email)) {
-      // Check if email exists
-      final result = await ApiService.checkEmailExists(email);
+  Future<void> _validateAndNavigate() async {
+    print('_validateAndNavigate called');
 
-      if (result.containsKey('error')) {
-        _showErrorMessage(result['error']);
-        return;
+    if (_emailController.text.isEmpty) {
+      NotificationService.showError(
+        context: context,
+        title: 'Error',
+        message: 'Please enter your email',
+      );
+      return;
+    }
+
+    if (!_isValidEmail(_emailController.text)) {
+      NotificationService.showError(
+        context: context,
+        title: 'Error',
+        message: 'Please enter a valid email',
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('Sending OTP request for: ${_emailController.text}');
+      final response = await ApiService.sendOTP(_emailController.text);
+      print('OTP send response: $response');
+
+      if (response['success']) {
+        print('OTP sent successfully, navigating to OTP screen');
+        if (mounted) {
+          NotificationService.showSuccess(
+            context: context,
+            title: 'OTP Sent',
+            message:
+                'OTP has been sent to your email: ${_emailController.text}',
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Otp(
+                email: _emailController.text,
+              ),
+            ),
+          );
+        }
+      } else {
+        print('OTP send failed: ${response['error']}');
+        if (mounted) {
+          NotificationService.showError(
+            context: context,
+            title: 'Email Not Found',
+            message: response['error'] ?? 'Failed to send OTP',
+          );
+        }
       }
-
-      if (!result['exists']) {
-        _showErrorMessage('مفيش اكونت متسجل على الايميل ده');
-        return;
-      }
-
-      // If email exists, send OTP and navigate
-      final otpResult = await ApiService.sendOTP(email);
-
-      if (otpResult.containsKey('error')) {
-        _showErrorMessage(otpResult['error']);
-        return;
-      }
-
-      // If OTP sent successfully, navigate to OTP screen
+    } catch (e) {
+      print('Error in _validateAndNavigate: $e');
       if (mounted) {
-        final platform = Theme.of(context).platform;
-        Navigator.push(
-          context,
-          platform == TargetPlatform.iOS
-              ? CupertinoPageRoute(builder: (context) => Otp(email: email))
-              : MaterialPageRoute(builder: (context) => Otp(email: email)),
+        NotificationService.showError(
+          context: context,
+          title: 'Error',
+          message: 'An error occurred while processing your request',
         );
       }
-    } else {
-      _showErrorMessage('الرجاء إدخال بريد إلكتروني صحيح');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   bool _isValidEmail(String email) {
     return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
-  }
-
-  void _showErrorMessage([String? message]) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message ?? 'حدث خطأ غير متوقع'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
 
   @override
@@ -118,20 +148,23 @@ class _EmailScreenState extends State<EmailScreen>
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: maxWidth),
-                padding: EdgeInsets.symmetric(
-                  horizontal: paddingHorizontal,
-                  vertical: size.height * 0.05,
-                ),
-                child: Column(
-                  children: [
-                    _buildAnimatedImage(),
-                    _buildHeaderTexts(size),
-                    _buildEmailInput(size, isIOS),
-                    _buildGetOTPButton(size, isIOS),
-                    _buildRegisterLink(size),
-                  ],
+              child: Form(
+                key: _formKey,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: maxWidth),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: paddingHorizontal,
+                    vertical: size.height * 0.05,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildAnimatedImage(),
+                      _buildHeaderTexts(size),
+                      _buildEmailInput(size, isIOS),
+                      _buildGetOTPButton(size, isIOS),
+                      _buildRegisterLink(size),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -265,6 +298,15 @@ class _EmailScreenState extends State<EmailScreen>
                 ),
               ),
               keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your email';
+                }
+                if (!_isValidEmail(value)) {
+                  return 'Please enter a valid email';
+                }
+                return null;
+              },
             ),
     );
   }

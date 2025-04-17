@@ -3,10 +3,12 @@ import 'package:road_helperr/ui/public_details/input_field.dart' as INp;
 import 'package:road_helperr/ui/public_details/main_button.dart' as bum;
 import 'package:road_helperr/ui/public_details/or_border.dart' as or_bbr;
 import 'package:road_helperr/ui/screens/car_settings_screen.dart';
-//import 'package:road_helperr/ui/screens/otp_screen.dart';
-import 'package:road_helperr/ui/screens/signin_screen.dart';
+import 'package:road_helperr/ui/screens/OTPscreen.dart';
 import 'package:road_helperr/utils/app_colors.dart' as colo;
 import 'package:road_helperr/utils/text_strings.dart';
+import 'package:road_helperr/services/api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:road_helperr/providers/signup_provider.dart';
 
 class ValidationForm extends StatefulWidget {
   const ValidationForm({super.key});
@@ -165,12 +167,31 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 20),
               bum.MainButton(
                 textButton: TextStrings.textButton3,
-                onPress: () {
+                onPress: () async {
                   if (_formKey.currentState!.validate()) {
+                    // If validation passes, navigate to car settings
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const CarSettingsScreen()),
+                        builder: (context) => CarSettingsScreen(
+                          registrationData: {
+                            'firstName': firstNameController.text.trim(),
+                            'lastName': lastNameController.text.trim(),
+                            'phone': phoneController.text.trim(),
+                            'email': emailController.text.trim(),
+                            'password': passwordController.text.trim(),
+                          },
+                        ),
+                      ),
+                    );
+                  } else {
+                    // Show validation error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please fill all fields correctly'),
+                        backgroundColor: Colors.red,
+                        duration: Duration(seconds: 3),
+                      ),
                     );
                   }
                 },
@@ -187,8 +208,83 @@ class _ValidationFormState extends State<ValidationForm> {
                         ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushNamed(SignInScreen.routeName);
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        try {
+                          // Prepare registration data
+                          final registrationData = {
+                            'firstName': firstNameController.text.trim(),
+                            'lastName': lastNameController.text.trim(),
+                            'phone': phoneController.text.trim(),
+                            'email': emailController.text.trim(),
+                            'password': passwordController.text.trim(),
+                          };
+
+                          // Store data in provider
+                          Provider.of<SignupProvider>(context, listen: false)
+                              .setUserData(registrationData);
+
+                          // Send OTP to the email without verification
+                          final otpResponse =
+                              await ApiService.sendOTPWithoutVerification(
+                                  registrationData['email']!);
+
+                          if (otpResponse['success'] == true) {
+                            // Show success message
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('OTP has been sent to your email'),
+                                backgroundColor: Colors.green,
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+
+                            // Navigate to OTP screen
+                            if (!mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Otp(
+                                  email: registrationData['email']!,
+                                  registrationData: registrationData,
+                                ),
+                              ),
+                            );
+                          } else {
+                            // Show OTP sending error
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(otpResponse['error'] ??
+                                    'Failed to send OTP'),
+                                backgroundColor: Colors.red,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          // Show error message in a snackbar
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      } else {
+                        // Show validation error message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please fill all fields correctly'),
+                            backgroundColor: Colors.red,
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      }
                     },
                     child: Text(
                       TextStrings.logIn,

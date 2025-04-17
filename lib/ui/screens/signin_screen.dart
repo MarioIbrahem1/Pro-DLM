@@ -6,6 +6,7 @@ import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.d
 import 'package:road_helperr/ui/screens/email_screen.dart';
 import 'package:road_helperr/ui/screens/signupScreen.dart';
 import 'package:road_helperr/services/api_service.dart';
+import 'package:road_helperr/services/notification_service.dart';
 
 class SignInScreen extends StatefulWidget {
   static const String routeName = "signinscreen";
@@ -190,30 +191,24 @@ class _SignInScreenState extends State<SignInScreen> {
                               if (!mounted) return;
 
                               if (response['error'] != null) {
-                                // Show error popup
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(response['error']),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
+                                NotificationService.showInvalidCredentials(
+                                    context);
                               } else {
                                 // Save user data if remember me is checked
                                 if (status) {
                                   await _saveUserData();
                                 }
-                                // Navigate to home screen
-                                Navigator.of(context)
-                                    .pushReplacementNamed(HomeScreen.routeName);
+                                // Show success message before navigation
+                                NotificationService.showLoginSuccess(
+                                  context,
+                                  onConfirm: () {
+                                    Navigator.of(context).pushReplacementNamed(
+                                        HomeScreen.routeName);
+                                  },
+                                );
                               }
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'An error occurred. Please try again.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              NotificationService.showNetworkError(context);
                             }
                           }
                         },
