@@ -27,30 +27,40 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   late GoogleMapController mapController;
   LatLng _currentLocation = const LatLng(30.0444, 31.2357); // Default to Cairo
-  bool _isLoading = true; // To show loading state
-  int _selectedIndex = 1; // Moved _selectedIndex here
-  Set<Marker> _markers = {}; // Markers to show on the map
+  bool _isLoading = true;
+  bool _showError = false;
+  int _selectedIndex = 1;
+  Set<Marker> _markers = {};
   Set<Marker> _userMarkers = {};
-
-  // Variables to store filter options
   Map<String, bool>? _filters;
   Timer? _locationUpdateTimer;
   Timer? _usersUpdateTimer;
-
-  // إضافة متغير لتخزين الفلتر المحدد
   String _selectedFilter = 'Hospital';
 
   @override
   void initState() {
     super.initState();
+    _initializeMap();
     _startLocationUpdates();
     _startUsersUpdates();
+  }
+
+  Future<void> _initializeMap() async {
+    await _getCurrentLocation();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _locationUpdateTimer?.cancel();
     _usersUpdateTimer?.cancel();
+    if (mapController != null) {
+      mapController.dispose();
+    }
     super.dispose();
   }
 
@@ -136,48 +146,135 @@ class _MapScreenState extends State<MapScreen> {
 
   // Function to get current location
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      NotificationService.showError(
-        context: context,
-        title: 'Location Services Disabled',
-        message: 'Please enable location services to use this feature.',
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        NotificationService.showError(
-          context: context,
-          title: 'Location Permission Denied',
-          message: 'Please grant location permission to use this feature.',
-        );
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      NotificationService.showError(
-        context: context,
-        title: 'Location Permission Permanently Denied',
-        message: 'Please enable location permission in your device settings.',
+      print('Checking location permission...');
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        print('Location permission denied, requesting permission...');
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('Location permission denied after request');
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _showError = true;
+            });
+          }
+          return;
+        }
+      }
+      print('Location permission status: $permission');
+
+      if (permission == LocationPermission.deniedForever) {
+        print('Location permission permanently denied');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _showError = true;
+          });
+        }
+        return;
+      }
+
+      print('Getting current position...');
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30), // زيادة المهلة إلى 30 ثانية
+      ).timeout(
+        const Duration(seconds: 35), // زيادة مهلة الانتظار الكلية إلى 35 ثانية
+        onTimeout: () {
+          print('Location request timed out, retrying...');
+          throw TimeoutException('Location request timed out');
+        },
       );
-      return;
-    }
 
-    // Get the current position
-    Position position = await Geolocator.getCurrentPosition();
-    setState(() {
-      _currentLocation = LatLng(position.latitude, position.longitude);
-      _isLoading = false; // Stop loading
-    });
+      print('Position received: ${position.latitude}, ${position.longitude}');
 
-    // Fetch nearby places based on filters
-    if (_filters != null) {
-      _fetchNearbyPlaces(position.latitude, position.longitude);
+      if (mounted) {
+        setState(() {
+          _currentLocation = LatLng(position.latitude, position.longitude);
+          _isLoading = false;
+          _showError = false;
+        });
+
+        // Move camera to current location
+        if (mapController != null) {
+          print('Moving camera to current location');
+          await mapController.animateCamera(
+            CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: _currentLocation,
+                zoom: 15.0,
+              ),
+            ),
+          );
+        }
+
+        // If we have filters, fetch nearby places
+        if (_filters != null) {
+          await _fetchNearbyPlaces(position.latitude, position.longitude);
+        }
+      }
+    } catch (e) {
+      print('Error getting current location: $e');
+      if (e is TimeoutException) {
+        // Retry once on timeout
+        try {
+          print('Retrying location request...');
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy:
+                LocationAccuracy.medium, // Lower accuracy for retry
+            timeLimit: const Duration(seconds: 10),
+          );
+
+          if (mounted) {
+            setState(() {
+              _currentLocation = LatLng(position.latitude, position.longitude);
+              _isLoading = false;
+              _showError = true;
+            });
+
+            if (mapController != null) {
+              await mapController.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                    target: _currentLocation,
+                    zoom: 15.0,
+                  ),
+                ),
+              );
+            }
+          }
+        } catch (retryError) {
+          print('Retry failed: $retryError');
+          if (mounted) {
+            NotificationService.showError(
+              context: context,
+              title: 'Location Error',
+              message:
+                  'Could not get your current location. Please check your GPS signal and try again.',
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          NotificationService.showError(
+            context: context,
+            title: 'Location Error',
+            message: 'Could not get your current location. Please try again.',
+          );
+        }
+      }
     }
   }
 
@@ -646,10 +743,156 @@ class _MapScreenState extends State<MapScreen> {
         ),
         toolbarHeight: navBarHeight,
       ),
-      backgroundColor: Colors.yellow,
+      backgroundColor: Colors.white,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator()) // Show loading
-          : _buildBody(context, size, constraints, titleSize, isDesktop),
+          ? Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                image: DecorationImage(
+                  image: AssetImage('assets/map-bg.png'),
+                  opacity: 0.1,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 5,
+                            blurRadius: 7,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.basicButton,
+                              ),
+                              strokeWidth: 3,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'جاري تحديد موقعك...',
+                            style: TextStyle(
+                              color: AppColors.labelTextField,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'يرجى الانتظار قليلاً',
+                            style: TextStyle(
+                              color: AppColors.labelTextField.withOpacity(0.7),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _showError
+              ? Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    image: DecorationImage(
+                      image: AssetImage('assets/map-bg.png'),
+                      opacity: 0.1,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                spreadRadius: 5,
+                                blurRadius: 7,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.location_off,
+                                color: Colors.red,
+                                size: 50,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Location Error',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Could not get your current location.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: _getCurrentLocation,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.basicButton,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 30,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Try Again',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _buildBody(context, size, constraints, titleSize, isDesktop),
       bottomNavigationBar: _buildMaterialNavBar(
         context,
         iconSize,
@@ -694,8 +937,11 @@ class _MapScreenState extends State<MapScreen> {
               child: _isLoading
                   ? const Center(
                       child: CupertinoActivityIndicator()) // Show loading
-                  : _buildBody(
-                      context, size, constraints, titleSize, isDesktop),
+                  : _showError
+                      ? const Center(
+                          child: CupertinoActivityIndicator()) // Show loading
+                      : _buildBody(
+                          context, size, constraints, titleSize, isDesktop),
             ),
             _buildCupertinoNavBar(
               context,
@@ -716,18 +962,96 @@ class _MapScreenState extends State<MapScreen> {
     double titleSize,
     bool isDesktop,
   ) {
-    return GoogleMap(
-      onMapCreated: _onMapCreated,
-      initialCameraPosition: CameraPosition(
-        target: _currentLocation,
-        zoom: 15.0,
-      ),
-      markers: _markers,
-      myLocationEnabled: true,
-      myLocationButtonEnabled: true,
-      mapToolbarEnabled: false,
-      zoomControlsEnabled: false,
-      compassEnabled: true,
+    return Stack(
+      children: [
+        GoogleMap(
+          onMapCreated: _onMapCreated,
+          initialCameraPosition: CameraPosition(
+            target: _currentLocation,
+            zoom: 15.0,
+          ),
+          markers: _markers,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: true,
+          compassEnabled: true,
+          onCameraMove: (CameraPosition position) {
+            setState(() {
+              _currentLocation = position.target;
+            });
+          },
+        ),
+        if (_showError)
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 40),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 5,
+                    blurRadius: 7,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.location_off,
+                    color: Colors.red,
+                    size: 50,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Location Error',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Could not get your current location.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _getCurrentLocation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.basicButton,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                    child: Text(
+                      'Try Again',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 

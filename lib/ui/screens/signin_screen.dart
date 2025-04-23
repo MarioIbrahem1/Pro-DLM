@@ -198,6 +198,12 @@ class _SignInScreenState extends State<SignInScreen> {
                                 if (status) {
                                   await _saveUserData();
                                 }
+                                // Save logged in user email
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.setString(
+                                    'logged_in_email', emailController.text);
+
                                 // Show success message before navigation
                                 NotificationService.showLoginSuccess(
                                   context,

@@ -2,25 +2,31 @@ import 'package:flutter/material.dart';
 
 class EditTextField extends StatelessWidget {
   final String label;
-  final IconData icon; // Change to IconData
+  final IconData icon;
   final double iconSize;
   final TextInputType keyboardType;
   final bool obscureText;
+  final TextEditingController? controller;
+  final String? Function(String?)? validator;
 
   const EditTextField({
     super.key,
     required this.label,
-    required this.icon, // Change to IconData
-    this.iconSize = 8, // Smaller default size
+    required this.icon,
+    this.iconSize = 8,
     this.keyboardType = TextInputType.text,
     this.obscureText = false,
+    this.controller,
+    this.validator,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      child: TextField(
+      child: TextFormField(
+        controller: controller,
+        validator: validator,
         keyboardType: keyboardType,
         obscureText: obscureText,
         style: const TextStyle(color: Colors.white),
@@ -31,7 +37,7 @@ class EditTextField extends StatelessWidget {
             icon,
             size: iconSize,
             color: Colors.white,
-          ), // Use IconData here
+          ),
           filled: true,
           fillColor: const Color(0xFF022C5A),
           enabledBorder: OutlineInputBorder(
@@ -42,6 +48,15 @@ class EditTextField extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
             borderSide: const BorderSide(color: Colors.blue, width: 2),
           ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          errorStyle: const TextStyle(color: Colors.red),
         ),
       ),
     );

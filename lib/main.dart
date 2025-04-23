@@ -7,18 +7,19 @@ import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/map_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/notification_screen.dart';
-import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
+import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart'
+    as profile;
 import 'package:road_helperr/ui/screens/edit_profile_screen.dart';
 import 'package:road_helperr/ui/screens/email_screen.dart';
 import 'package:road_helperr/ui/screens/on_boarding.dart';
 import 'package:road_helperr/ui/screens/onboarding.dart';
 import 'package:road_helperr/ui/screens/otp_expired_screen.dart';
 import 'package:road_helperr/ui/screens/otp_screen.dart';
-import 'package:road_helperr/ui/screens/profile_screen.dart';
 import 'package:road_helperr/ui/screens/signin_screen.dart';
 import 'package:road_helperr/ui/screens/signupScreen.dart';
-import 'package:road_helperr/ui/screens/emergency_contacts.dart'; // إضافة الشاشة الجديدة
-import 'utils/location_service.dart'; // Import the location service
+import 'package:road_helperr/ui/screens/emergency_contacts.dart';
+import 'package:road_helperr/models/profile_data.dart';
+import 'utils/location_service.dart';
 
 void main() {
   runApp(
@@ -105,24 +106,33 @@ class _MyAppState extends State<MyApp> {
         HomeScreen.routeName: (context) => const HomeScreen(),
         MapScreen.routeName: (context) => const MapScreen(),
         NotificationScreen.routeName: (context) => const NotificationScreen(),
-        ProfileScreen.routeName: (context) => const ProfileScreen(),
+        profile.ProfileScreen.routeName: (context) =>
+            const profile.ProfileScreen(),
         OtpScreen.routeName: (context) => const OtpScreen(),
         OnBoarding.routeName: (context) => const OnBoarding(),
         OnboardingScreen.routeName: (context) => const OnboardingScreen(),
         OtpExpiredScreen.routeName: (context) => const OtpExpiredScreen(),
-        PersonScreen.routeName: (context) => const PersonScreen(
-              name: '',
-              email: '',
-            ),
-        EditProfileScreen.routeName: (context) => const EditProfileScreen(),
+        profile.PersonScreen.routeName: (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>?;
+          return profile.PersonScreen(
+            name: args?['name'] ?? '',
+            email: args?['email'] ?? '',
+          );
+        },
+        EditProfileScreen.routeName: (context) {
+          final args = ModalRoute.of(context)!.settings.arguments
+              as Map<String, dynamic>;
+          return EditProfileScreen(
+            email: args['email'] as String,
+            initialData: args['initialData'] as ProfileData?,
+          );
+        },
         EmailScreen.routeName: (context) => const EmailScreen(),
         EmergencyContactsScreen.routeName: (context) =>
-            const EmergencyContactsScreen(), // إضافة مسار جديد
+            const EmergencyContactsScreen(),
       },
-
       initialRoute: OnboardingScreen.routeName,
-      //initialRoute: HomeScreen.routeName,
-     // initialRoute: OnBoarding.routeName,
     );
   }
 }
