@@ -19,7 +19,7 @@ class CarSettingsScreen extends StatefulWidget {
 class _CarSettingsScreenState extends State<CarSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final bool _isNumbersOnly = false;
-  String _carNumber = '';
+  final String _carNumber = '';
   String _carColor = '';
   String _carModel = '';
   final String _carYear = '';

@@ -17,7 +17,7 @@
         <!-- مفتاح API الخاص بـ Google Maps (يُفضل تخزينه بأمان) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDrP9YA-D4xFrLi-v1klPXvtoEuww6kmBo"/>
+            android:value="AIzaSyDGm9ZQELEZjPCOQWx2lxOOu5DDElcLc4Y"/>
         
         <activity
             android:name=".MainActivity"

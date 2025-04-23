@@ -67,29 +67,37 @@ class _HomeScreenState extends State<HomeScreen> {
     // بناء الرابط لإرسال الفلاتر إلى الـ API
     String placeTypes = selectedKeys.map((e) {
       switch (e) {
-        case 'homeGas':
+        case TextStrings.homeGas:
           return 'gas_station';
-        case 'homePolice':
+        case TextStrings.homePolice:
           return 'police';
-        case 'homeFire':
+        case TextStrings.homeFire:
           return 'fire_station';
-        case 'homeHospital':
+        case TextStrings.homeHospital:
           return 'hospital';
-        case 'homeMaintenance':
+        case TextStrings.homeMaintenance:
           return 'car_repair';
-        case 'homeWinch':
+        case TextStrings.homeWinch:
           return 'tow_truck';
         default:
+          print('❌ Unknown filter type: $e');
           return '';
       }
     }).join('|'); // دمج الفلاتر المختارة بفاصل "|"
 
+    print('🔍 Sending request to Google Places API:');
+    print('Location: $currentLatitude, $currentLongitude');
+    print('Place Types: $placeTypes');
+
     // ارسال الريكويست للـ API جوجل ماب
     var response = await http.get(
       Uri.parse(
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$currentLatitude,$currentLongitude&radius=5000&type=$placeTypes&key=AIzaSyDrP9YA-D4xFrLi-v1klPXvtoEuww6kmBo",
+        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$currentLatitude,$currentLongitude&radius=5000&type=$placeTypes&key=AIzaSyDGm9ZQELEZjPCOQWx2lxOOu5DDElcLc4Y",
       ),
     );
+
+    print('📡 API Response Status: ${response.statusCode}');
+    print('📡 API Response Body: ${response.body}');
 
     // معالجة البيانات المسترجعة من الـ API
     if (response.statusCode == 200) {
@@ -181,16 +189,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToMap(BuildContext context) {
-    if (selectedServicesCount >= 1 && selectedServicesCount <= 3) {
-      print("Selected Filters: $serviceStates"); // Print selected filters
-      getFilteredServices();
+    // تحويل الفلاتر المحددة إلى Map جديد يحتوي فقط على الفلاتر النشطة
+    Map<String, bool> activeFilters = {};
+
+    if (serviceStates[TextStrings.homeHospital] ?? false) {
+      activeFilters['Hospital'] = true;
+    }
+    if (serviceStates[TextStrings.homePolice] ?? false) {
+      activeFilters['Police'] = true;
+    }
+    if (serviceStates[TextStrings.homeMaintenance] ?? false) {
+      activeFilters['Maintenance center'] = true;
+    }
+    if (serviceStates[TextStrings.homeWinch] ?? false) {
+      activeFilters['Winch'] = true;
+    }
+    if (serviceStates[TextStrings.homeGas] ?? false) {
+      activeFilters['Gas Station'] = true;
+    }
+    if (serviceStates[TextStrings.homeFire] ?? false) {
+      activeFilters['Fire Station'] = true;
+    }
+
+    print(
+        "Active Filters being sent to Map: $activeFilters"); // للتأكد من الفلاتر المرسلة
+
+    if (activeFilters.isNotEmpty) {
       Navigator.pushNamed(
         context,
         MapScreen.routeName,
-        arguments: serviceStates, // إرسال اختيارات الفلترة
+        arguments: activeFilters, // إرسال الفلاتر النشطة فقط
       );
     } else {
-      _showWarningDialog(context);
+      NotificationService.showValidationError(
+        context,
+        'Please select at least one service!',
+      );
     }
   }
 

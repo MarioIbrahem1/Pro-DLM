@@ -3,14 +3,17 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
 import '../../../utils/app_colors.dart';
 import '../ai_welcome_screen.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
 import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/models/user_location.dart';
+import 'package:road_helperr/services/api_service.dart';
+import 'package:road_helperr/services/places_service.dart';
+import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 
 class MapScreen extends StatefulWidget {
   static const String routeName = "map";
@@ -27,17 +30,108 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoading = true; // To show loading state
   int _selectedIndex = 1; // Moved _selectedIndex here
   Set<Marker> _markers = {}; // Markers to show on the map
+  Set<Marker> _userMarkers = {};
 
   // Variables to store filter options
   Map<String, bool>? _filters;
+  Timer? _locationUpdateTimer;
+  Timer? _usersUpdateTimer;
+
+  // إضافة متغير لتخزين الفلتر المحدد
+  String _selectedFilter = 'Hospital';
+
+  @override
+  void initState() {
+    super.initState();
+    _startLocationUpdates();
+    _startUsersUpdates();
+  }
+
+  @override
+  void dispose() {
+    _locationUpdateTimer?.cancel();
+    _usersUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startLocationUpdates() {
+    // Update user's location every 30 seconds
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updateUserLocation();
+    });
+  }
+
+  void _startUsersUpdates() {
+    // Update other users' locations every 10 seconds
+    _usersUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _fetchNearbyUsers();
+    });
+  }
+
+  Future<void> _updateUserLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      // Update user's location in the backend
+      await ApiService.updateUserLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } catch (e) {
+      print('Error updating user location: $e');
+    }
+  }
+
+  Future<void> _fetchNearbyUsers() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      List<UserLocation> nearbyUsers = await ApiService.getNearbyUsers(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        radius: 5000, // 5km radius
+      );
+
+      Set<Marker> userMarkers = {};
+      for (var user in nearbyUsers) {
+        userMarkers.add(
+          Marker(
+            markerId: MarkerId(user.userId),
+            position: user.position,
+            infoWindow: InfoWindow(
+              title: user.userName,
+              snippet: user.isOnline ? 'Online' : 'Offline',
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              user.isOnline
+                  ? BitmapDescriptor.hueGreen
+                  : BitmapDescriptor.hueRed,
+            ),
+          ),
+        );
+      }
+
+      setState(() {
+        _userMarkers = userMarkers;
+        _markers = {..._markers, ..._userMarkers};
+      });
+    } catch (e) {
+      print('Error fetching nearby users: $e');
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Get filter options from HomeScreen
-    _filters = ModalRoute.of(context)!.settings.arguments as Map<String, bool>?;
-    print("Received Filters: $_filters"); // Print received filters
-    _getCurrentLocation();
+    // استقبال الفلاتر من الشاشة السابقة
+    final receivedFilters =
+        ModalRoute.of(context)?.settings.arguments as Map<String, bool>?;
+    if (receivedFilters != null) {
+      setState(() {
+        _filters = receivedFilters;
+      });
+      print(
+          "Received filters in Map Screen: $_filters"); // للتأكد من استلام الفلاتر
+      _getCurrentLocation(); // تحديث الخريطة بناءً على الفلاتر الجديدة
+    }
   }
 
   // Function to get current location
@@ -89,82 +183,400 @@ class _MapScreenState extends State<MapScreen> {
 
   // Function to fetch nearby places using Google Places API
   Future<void> _fetchNearbyPlaces(double latitude, double longitude) async {
-    // Convert filters to Google Places API types
-    List<String> selectedTypes = _filters!.entries
-        .where((entry) => entry.value) // Only selected filters
-        .map((entry) {
-          switch (entry.key) {
-            case 'homeGas':
-              return 'gas_station';
-            case 'homePolice':
-              return 'police';
-            case 'homeFire':
-              return 'fire_station';
-            case 'homeHospital':
-              return 'hospital';
-            case 'homeMaintenance':
-              return 'car_repair';
-            case 'homeWinch':
-              return 'tow_truck';
-            default:
-              return '';
+    try {
+      print('🔍 Starting to fetch nearby places');
+
+      if (_filters == null || _filters!.isEmpty) {
+        print("❌ No filters available!");
+        return;
+      }
+
+      // تحويل الفلاتر إلى أنواع Google Places
+      List<String> selectedTypes = [];
+      _filters!.forEach((key, value) {
+        if (value) {
+          // إذا كان الفلتر مفعل
+          String placeType = '';
+          switch (key) {
+            case 'Hospital':
+              placeType = 'hospital';
+              break;
+            case 'Police':
+              placeType = 'police';
+              break;
+            case 'Maintenance center':
+              placeType = 'car_repair';
+              break;
+            case 'Winch':
+              placeType = 'car_dealer';
+              break;
+            case 'Gas Station':
+              placeType = 'gas_station';
+              break;
+            case 'Fire Station':
+              placeType = 'fire_station';
+              break;
           }
-        })
-        .where((type) => type.isNotEmpty) // Remove empty types
-        .toList();
+          if (placeType.isNotEmpty) {
+            selectedTypes.add(placeType);
+          }
+        }
+      });
 
-    if (selectedTypes.isEmpty) {
-      print("No filters selected!"); // Print if no filters are selected
-      return; // No filters selected
-    }
+      print(
+          'Selected place types for API: $selectedTypes'); // للتأكد من الأنواع المرسلة للـ API
 
-    // Build the API request URL
-    String types = selectedTypes.join('|'); // Combine types with "|"
-    String apiKey =
-        'AIzaSyDrP9YA-D4xFrLi-v1klPXvtoEuww6kmBo'; // Replace with your API key
-    String url =
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$latitude,$longitude&radius=5000&type=$types&key=$apiKey";
+      if (selectedTypes.isEmpty) {
+        print("❌ No valid place types found!");
+        return;
+      }
 
-    // Make the API request
-    print("API URL: $url"); // Print the API URL
+      // جلب الأماكن القريبة لكل نوع على حدة للحصول على نتائج أفضل
+      Set<Marker> allMarkers = {};
 
-    // Send the request
-    var response = await http.get(Uri.parse(url));
+      for (String type in selectedTypes) {
+        final places = await PlacesService.searchNearbyPlaces(
+          latitude: latitude,
+          longitude: longitude,
+          radius: 5000,
+          types: [type],
+        );
 
-    if (response.statusCode == 200) {
-      var data = jsonDecode(response.body);
-      print("API Response: $data"); // Print the API response
-      _updateMapWithPlaces(data['results']);
-    } else {
-      print("Error fetching data!");
+        print('Found ${places.length} places for type: $type');
+
+        for (var place in places) {
+          try {
+            final lat =
+                (place['geometry']['location']['lat'] as num).toDouble();
+            final lng =
+                (place['geometry']['location']['lng'] as num).toDouble();
+            final name = place['name'] as String? ?? 'Unknown Place';
+            final placeId =
+                place['place_id'] as String? ?? DateTime.now().toString();
+
+            // تحديد لون الماركر بناءً على نوع المكان
+            double markerHue;
+            switch (type) {
+              case 'hospital':
+                markerHue = BitmapDescriptor.hueRed;
+                break;
+              case 'police':
+                markerHue = BitmapDescriptor.hueBlue;
+                break;
+              case 'car_repair':
+                markerHue = BitmapDescriptor.hueOrange;
+                break;
+              case 'car_dealer':
+                markerHue = BitmapDescriptor.hueYellow;
+                break;
+              case 'gas_station':
+                markerHue = BitmapDescriptor.hueGreen;
+                break;
+              case 'fire_station':
+                markerHue = BitmapDescriptor.hueViolet;
+                break;
+              default:
+                markerHue = BitmapDescriptor.hueRed;
+            }
+
+            allMarkers.add(
+              Marker(
+                markerId: MarkerId(placeId),
+                position: LatLng(lat, lng),
+                icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
+                onTap: () async {
+                  try {
+                    final details =
+                        await PlacesService.getPlaceDetails(placeId);
+                    if (details != null && mounted) {
+                      _showPlaceDetails(details);
+                    }
+                  } catch (e) {
+                    print('Error getting place details: $e');
+                    if (mounted) {
+                      NotificationService.showError(
+                        context: context,
+                        title: 'Error',
+                        message:
+                            'Could not load place details. Please try again.',
+                      );
+                    }
+                  }
+                },
+              ),
+            );
+          } catch (e) {
+            print('Error adding marker: $e');
+            continue;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _markers = allMarkers;
+        });
+      }
+    } catch (e) {
+      print('❌ Error fetching nearby places: $e');
+      if (mounted) {
+        NotificationService.showError(
+          context: context,
+          title: 'Error',
+          message: 'Failed to fetch nearby places. Please try again.',
+        );
+      }
     }
   }
 
-  // Function to update the map with nearby places
-  void _updateMapWithPlaces(List<dynamic> places) {
-    Set<Marker> markers = {};
-
-    for (var place in places) {
-      double lat = place['geometry']['location']['lat'];
-      double lng = place['geometry']['location']['lng'];
-      String name = place['name'];
-
-      markers.add(
-        Marker(
-          markerId: MarkerId(place['place_id']),
-          position: LatLng(lat, lng),
-          infoWindow: InfoWindow(title: name),
+  void _showPlaceDetails(Map<String, dynamic> details) {
+    try {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          height: MediaQuery.of(context).size.height * 0.4,
+          decoration: BoxDecoration(
+            color: AppColors.cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: AppColors.borderField.withOpacity(0.1)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.borderField.withOpacity(0.1),
+                blurRadius: 10,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.borderField.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title and Open Status
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              details['name'] as String? ?? 'Unknown Place',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.labelTextField,
+                              ),
+                            ),
+                          ),
+                          if (details['opening_hours'] != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (details['opening_hours']['open_now']
+                                            as bool?) ??
+                                        false
+                                    ? AppColors.basicButton.withOpacity(0.2)
+                                    : Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: (details['opening_hours']['open_now']
+                                              as bool?) ??
+                                          false
+                                      ? AppColors.basicButton
+                                      : Colors.red,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                (details['opening_hours']['open_now']
+                                            as bool?) ??
+                                        false
+                                    ? 'Open'
+                                    : 'Closed',
+                                style: TextStyle(
+                                  color: (details['opening_hours']['open_now']
+                                              as bool?) ??
+                                          false
+                                      ? AppColors.labelTextField
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Rating
+                      if (details['rating'] != null)
+                        Row(
+                          children: [
+                            ...List.generate(5, (index) {
+                              double rating =
+                                  (details['rating'] as num).toDouble();
+                              return Icon(
+                                index < rating.floor()
+                                    ? Icons.star
+                                    : index < rating
+                                        ? Icons.star_half
+                                        : Icons.star_border,
+                                color: AppColors.signAndRegister,
+                                size: 20,
+                              );
+                            }),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${(details['rating'] as num).toDouble()}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color:
+                                    AppColors.labelTextField.withOpacity(0.8),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 16),
+                      // Address
+                      Row(
+                        children: [
+                          Icon(Icons.location_on,
+                              color: AppColors.labelTextField.withOpacity(0.8)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              details['formatted_address'] as String? ??
+                                  'No address available',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color:
+                                    AppColors.labelTextField.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      // Action Buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildActionButton(
+                            icon: Icons.directions,
+                            label: 'Directions',
+                            onTap: () {
+                              try {
+                                final lat = (details['geometry']['location']
+                                        ['lat'] as num)
+                                    .toDouble();
+                                final lng = (details['geometry']['location']
+                                        ['lng'] as num)
+                                    .toDouble();
+                                final url =
+                                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng';
+                                launch(url);
+                              } catch (e) {
+                                print('Error opening directions: $e');
+                              }
+                            },
+                          ),
+                          if (details['formatted_phone_number'] != null)
+                            _buildActionButton(
+                              icon: Icons.phone,
+                              label: 'Call',
+                              onTap: () {
+                                try {
+                                  launch(
+                                      'tel:${details['formatted_phone_number']}');
+                                } catch (e) {
+                                  print('Error making call: $e');
+                                }
+                              },
+                            ),
+                          _buildActionButton(
+                            icon: Icons.share,
+                            label: 'Share',
+                            onTap: () {
+                              // Implement share functionality
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
+    } catch (e) {
+      print('Error showing place details: $e');
+      NotificationService.showError(
+        context: context,
+        title: 'Error',
+        message: 'Could not display place details. Please try again.',
+      );
     }
-
-    setState(() {
-      _markers = markers;
-    });
   }
 
-  void _onMapCreated(GoogleMapController controller) {
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.basicButton.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.basicButton.withOpacity(0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.labelTextField, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.labelTextField,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onMapCreated(GoogleMapController controller) async {
     mapController = controller;
+    // تطبيق النمط المخصص على الخريطة
+    String mapStyle = await DefaultAssetBundle.of(context)
+        .loadString('assets/map_style.json');
+    mapController.setMapStyle(mapStyle);
   }
 
   @override
@@ -307,12 +719,15 @@ class _MapScreenState extends State<MapScreen> {
     return GoogleMap(
       onMapCreated: _onMapCreated,
       initialCameraPosition: CameraPosition(
-        target: _currentLocation, // Use current location
-        zoom: 15.0, // Adjust zoom level as needed
+        target: _currentLocation,
+        zoom: 15.0,
       ),
-      markers: _markers, // Add markers to the map
-      myLocationEnabled: true, // Show user's location on the map
-      myLocationButtonEnabled: true, // Show button to center on user's location
+      markers: _markers,
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      mapToolbarEnabled: false,
+      zoomControlsEnabled: false,
+      compassEnabled: true,
     );
   }
 

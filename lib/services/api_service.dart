@@ -1,9 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:road_helperr/models/user_location.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static const String baseUrl = 'http://81.10.91.96:8132';
+
+  // Get token from shared preferences
+  static Future<String> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token') ?? '';
+  }
 
   static Future<bool> _checkConnectivity() async {
     var connectivityResult = await Connectivity().checkConnectivity();
@@ -448,6 +456,58 @@ class ApiService {
         'error':
             'حدث خطأ غير متوقع أثناء إعادة تعيين كلمة المرور. يرجى المحاولة مرة أخرى'
       };
+    }
+  }
+
+  // Update user's location
+  static Future<void> updateUserLocation({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/update-location'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+        body: jsonEncode({
+          'latitude': latitude,
+          'longitude': longitude,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update location');
+      }
+    } catch (e) {
+      throw Exception('Error updating location: $e');
+    }
+  }
+
+  // Get nearby users
+  static Future<List<UserLocation>> getNearbyUsers({
+    required double latitude,
+    required double longitude,
+    required double radius,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '$baseUrl/nearby-users?latitude=$latitude&longitude=$longitude&radius=$radius'),
+        headers: {
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => UserLocation.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch nearby users');
+      }
+    } catch (e) {
+      throw Exception('Error fetching nearby users: $e');
     }
   }
 }
