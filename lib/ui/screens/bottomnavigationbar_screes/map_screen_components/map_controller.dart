@@ -1,11 +1,13 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/places_service.dart';
-import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/utils/polyline_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Controller class to manage map logic and state
 class MapController {
@@ -18,35 +20,65 @@ class MapController {
   // Markers
   Set<Marker> _markers = {};
   Set<Marker> _userMarkers = {};
+  Marker? _nearestPlaceMarker;
+
+  // Polylines for routes
+  Set<Polyline> _polylines = {};
 
   // Filters
   Map<String, bool>? _filters;
+
+  // Nearest place data
+  Map<String, dynamic>? _nearestPlace;
+  double? _nearestPlaceDistance;
+  String? _nearestPlaceTravelTime;
+
+  // Selected place data (when user taps on a marker)
+  Map<String, dynamic>? _selectedPlace;
+
+  // Route data
+  Map<String, dynamic>? _routeData;
+  bool _isShowingRoute = false;
 
   // Timers
   Timer? _locationUpdateTimer;
   Timer? _usersUpdateTimer;
 
   // Loading state
-  bool _isLoading = true;
+  final bool _isLoading = true;
 
   // Getters
   LatLng get currentLocation => _currentLocation;
   Set<Marker> get markers => _markers;
+  Set<Polyline> get polylines => _polylines;
   bool get isLoading => _isLoading;
+  bool get isShowingRoute => _isShowingRoute;
+  Map<String, dynamic>? get nearestPlace => _nearestPlace;
+  Map<String, dynamic>? get selectedPlace => _selectedPlace;
+  double? get nearestPlaceDistance => _nearestPlaceDistance;
+  String? get nearestPlaceTravelTime => _nearestPlaceTravelTime;
+  Map<String, dynamic>? get routeData => _routeData;
 
   // Callbacks
   final Function(bool) onLoadingChanged;
   final Function(Set<Marker>) onMarkersChanged;
+  final Function(Set<Polyline>) onPolylinesChanged;
   final Function(LatLng) onLocationChanged;
   final Function(String, String) onError;
   final Function(Map<String, dynamic>) onPlaceSelected;
+  final Function(Map<String, dynamic>?, double?, String?)?
+      onNearestPlaceChanged;
+  final Function(Map<String, dynamic>?)? onRouteChanged;
 
   MapController({
     required this.onLoadingChanged,
     required this.onMarkersChanged,
+    required this.onPolylinesChanged,
     required this.onLocationChanged,
     required this.onError,
     required this.onPlaceSelected,
+    this.onNearestPlaceChanged,
+    this.onRouteChanged,
   });
 
   /// Initialize map and location
@@ -255,13 +287,14 @@ class MapController {
           'hue': BitmapDescriptor.hueOrange,
         },
         'Winch': {
-          'type': 'car_dealer', // تغيير من tow_truck لأنه غير معترف به في API
-          'keyword': 'tow truck winch ونش سطحة',
+          'type':
+              'car_repair', // استخدام car_repair بدلاً من car_dealer للحصول على نتائج أفضل
+          'keyword': 'tow truck winch recovery ونش انقاذ سيارات سطحة',
           'hue': BitmapDescriptor.hueYellow,
         },
         'Gas Station': {
           'type': 'gas_station',
-          'keyword': 'gas station fuel محطة وقود بنزين',
+          'keyword': 'petrol station fuel محطة بنزين وقود',
           'hue': BitmapDescriptor.hueGreen,
         },
         'Fire Station': {
@@ -363,6 +396,11 @@ class MapController {
 
       // تحديث العلامات
       _markers = placeMarkers;
+
+      // Find the nearest place after updating markers
+      await _findNearestPlace();
+
+      // Update markers including the nearest place marker
       _updateMarkers();
     } catch (e) {
       debugPrint('Error in _fetchNearbyPlaces: $e');
@@ -376,13 +414,852 @@ class MapController {
   /// Update markers by combining place markers and user markers
   void _updateMarkers() {
     final combinedMarkers = {..._markers, ..._userMarkers};
+
+    // Add nearest place marker if available
+    if (_nearestPlaceMarker != null) {
+      combinedMarkers.add(_nearestPlaceMarker!);
+    }
+
     onMarkersChanged(combinedMarkers);
   }
 
   /// Handle place selection
-  void _handlePlaceSelected(Map<String, dynamic> details) {
+  Future<void> _handlePlaceSelected(Map<String, dynamic> details) async {
+    // Store the selected place
+    _selectedPlace = details;
+
+    // Calculate distance and travel time to the selected place
+    await _calculateDistanceToPlace(details);
+
     // Call the callback to show place details in UI
     onPlaceSelected(details);
+
+    // Update the nearest place to be the selected place
+    if (_selectedPlace != null && onNearestPlaceChanged != null) {
+      onNearestPlaceChanged!(
+          _selectedPlace, _nearestPlaceDistance, _nearestPlaceTravelTime);
+    }
+  }
+
+  /// Calculate distance and travel time to a place
+  Future<void> _calculateDistanceToPlace(Map<String, dynamic> place) async {
+    try {
+      if (place['geometry'] != null && place['geometry']['location'] != null) {
+        final lat = (place['geometry']['location']['lat'] as num).toDouble();
+        final lng = (place['geometry']['location']['lng'] as num).toDouble();
+
+        // Get the most accurate current location from GPS
+        LatLng originLocation;
+        try {
+          // Try to get the most accurate current location from GPS
+          final Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 5),
+          );
+          originLocation = LatLng(position.latitude, position.longitude);
+
+          // Update the current location
+          _currentLocation = originLocation;
+          onLocationChanged(_currentLocation);
+
+          debugPrint(
+              'Using GPS location for distance calculation: ${position.latitude}, ${position.longitude}');
+        } catch (e) {
+          // Fallback to the stored current location if GPS fails
+          originLocation = _currentLocation;
+          debugPrint(
+              'Using stored location for distance calculation: ${_currentLocation.latitude}, ${_currentLocation.longitude}');
+        }
+
+        // First calculate straight-line distance
+        final distance = _calculateDistance(originLocation, LatLng(lat, lng));
+        _nearestPlaceDistance = distance;
+
+        // Format the straight-line distance as fallback
+        String distanceText;
+        if (distance < 1000) {
+          distanceText = '${distance.toInt()} م';
+        } else {
+          distanceText = '${(distance / 1000).toStringAsFixed(1)} كم';
+        }
+
+        // Add fallback distance to the place data
+        place['distance'] = {
+          'text': distanceText,
+          'value': distance.toInt(),
+        };
+
+        // Then try to get more accurate distance and travel time using Distance Matrix API
+        try {
+          final result = await PlacesService.getDistanceMatrix(
+            originLat: originLocation.latitude,
+            originLng: originLocation.longitude,
+            destLat: lat,
+            destLng: lng,
+          );
+
+          if (result['status'] == 'OK') {
+            final distanceValue = result['distance']['value'] as int;
+            final durationText = result['duration']['text'] as String;
+            final distanceText = result['distance']['text'] as String;
+
+            debugPrint(
+                'Distance Matrix API result: $distanceText, $durationText');
+
+            _nearestPlaceDistance = distanceValue.toDouble();
+            _nearestPlaceTravelTime = durationText;
+
+            // Add distance and duration to the place data
+            place['distance'] = {
+              'text': distanceText,
+              'value': distanceValue,
+            };
+            place['duration'] = {
+              'text': durationText,
+              'value': result['duration']['value'],
+            };
+          } else {
+            debugPrint('Distance Matrix API error: ${result['status']}');
+            // Keep the straight-line distance as fallback
+            _nearestPlaceTravelTime = _formatTravelTime(distance);
+            place['duration'] = {
+              'text': _nearestPlaceTravelTime!,
+              'value': _estimateTravelTimeInSeconds(distance),
+            };
+          }
+        } catch (e) {
+          debugPrint('Error getting distance matrix: $e');
+          // Keep the straight-line distance as fallback
+          _nearestPlaceTravelTime = _formatTravelTime(distance);
+          place['duration'] = {
+            'text': _nearestPlaceTravelTime!,
+            'value': _estimateTravelTimeInSeconds(distance),
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('Error calculating distance to place: $e');
+    }
+  }
+
+  /// Format travel time based on distance
+  String _formatTravelTime(double distanceInMeters) {
+    // Estimate travel time based on average speed of 40 km/h
+    final timeInMinutes = (distanceInMeters / 1000 / 40 * 60).round();
+
+    if (timeInMinutes < 1) {
+      return 'أقل من دقيقة';
+    } else if (timeInMinutes < 60) {
+      return '$timeInMinutes دقيقة';
+    } else {
+      final hours = timeInMinutes ~/ 60;
+      final minutes = timeInMinutes % 60;
+      if (minutes == 0) {
+        return '$hours ساعة';
+      } else {
+        return '$hours ساعة و $minutes دقيقة';
+      }
+    }
+  }
+
+  /// Estimate travel time in seconds based on distance
+  int _estimateTravelTimeInSeconds(double distanceInMeters) {
+    // Estimate travel time based on average speed of 40 km/h
+    return (distanceInMeters / 1000 / 40 * 3600).round();
+  }
+
+  /// Calculate distance between two coordinates in meters
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    return Geolocator.distanceBetween(
+        point1.latitude, point1.longitude, point2.latitude, point2.longitude);
+  }
+
+  /// Find the nearest place from the current location using Distance Matrix API
+  Future<void> _findNearestPlace() async {
+    if (_markers.isEmpty) {
+      _nearestPlace = null;
+      _nearestPlaceDistance = null;
+      _nearestPlaceTravelTime = null;
+      _nearestPlaceMarker = null;
+      if (onNearestPlaceChanged != null) {
+        onNearestPlaceChanged!(null, null, null);
+      }
+      return;
+    }
+
+    // Get the most accurate current location from GPS
+    LatLng originLocation;
+    try {
+      // Try to get the most accurate current location from GPS
+      final Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      originLocation = LatLng(position.latitude, position.longitude);
+
+      // Update the current location
+      _currentLocation = originLocation;
+      onLocationChanged(_currentLocation);
+
+      debugPrint(
+          'Using GPS location for finding nearest place: ${position.latitude}, ${position.longitude}');
+    } catch (e) {
+      // Fallback to the stored current location if GPS fails
+      originLocation = _currentLocation;
+      debugPrint(
+          'Using stored location for finding nearest place: ${_currentLocation.latitude}, ${_currentLocation.longitude}');
+    }
+
+    double? minDistance;
+    String? travelTime;
+    Map<String, dynamic>? nearestPlace;
+    Marker? nearestMarker;
+
+    // First, find the approximate nearest place using straight-line distance
+    List<Marker> closestMarkers = [];
+    for (var marker in _markers) {
+      final distance = _calculateDistance(originLocation, marker.position);
+
+      if (closestMarkers.isEmpty || closestMarkers.length < 5) {
+        closestMarkers.add(marker);
+        closestMarkers.sort((a, b) {
+          final distA = _calculateDistance(originLocation, a.position);
+          final distB = _calculateDistance(originLocation, b.position);
+          return distA.compareTo(distB);
+        });
+      } else {
+        final lastDistance =
+            _calculateDistance(originLocation, closestMarkers.last.position);
+        if (distance < lastDistance) {
+          closestMarkers.removeLast();
+          closestMarkers.add(marker);
+          closestMarkers.sort((a, b) {
+            final distA = _calculateDistance(originLocation, a.position);
+            final distB = _calculateDistance(originLocation, b.position);
+            return distA.compareTo(distB);
+          });
+        }
+      }
+    }
+
+    // Now use Distance Matrix API to get accurate travel distances for the closest markers
+    for (var marker in closestMarkers) {
+      try {
+        final result = await PlacesService.getDistanceMatrix(
+          originLat: originLocation.latitude,
+          originLng: originLocation.longitude,
+          destLat: marker.position.latitude,
+          destLng: marker.position.longitude,
+        );
+
+        if (result['status'] == 'OK') {
+          final distanceValue = result['distance']['value'] as int;
+          final durationText = result['duration']['text'] as String;
+          final distanceText = result['distance']['text'] as String;
+
+          debugPrint(
+              'Distance to ${marker.infoWindow.title}: $distanceText, $durationText');
+
+          if (minDistance == null || distanceValue < minDistance) {
+            minDistance = distanceValue.toDouble();
+            travelTime = durationText;
+            nearestMarker = marker;
+
+            // Extract place data from marker
+            final markerId = marker.markerId.value;
+            final position = marker.position;
+            final title = marker.infoWindow.title ?? 'Unknown Place';
+            final snippet = marker.infoWindow.snippet ?? '';
+
+            nearestPlace = {
+              'place_id': markerId,
+              'name': title,
+              'vicinity': snippet,
+              'geometry': {
+                'location': {
+                  'lat': position.latitude,
+                  'lng': position.longitude,
+                }
+              },
+              'distance': {
+                'text': distanceText,
+                'value': distanceValue,
+              },
+              'duration': {
+                'text': durationText,
+                'value': result['duration']['value'],
+              }
+            };
+          }
+        } else {
+          debugPrint(
+              'Distance Matrix API error for ${marker.infoWindow.title}: ${result['status']}');
+        }
+      } catch (e) {
+        debugPrint(
+            'Error getting distance matrix for ${marker.infoWindow.title}: $e');
+        // Fallback to straight-line distance if API fails
+        final distance = _calculateDistance(originLocation, marker.position);
+
+        // Format the straight-line distance as fallback
+        String distanceText;
+        if (distance < 1000) {
+          distanceText = '${distance.toInt()} م';
+        } else {
+          distanceText = '${(distance / 1000).toStringAsFixed(1)} كم';
+        }
+
+        // Estimate travel time based on distance
+        final estimatedTravelTime = _formatTravelTime(distance);
+
+        if (minDistance == null || distance < minDistance) {
+          minDistance = distance;
+          travelTime = estimatedTravelTime;
+          nearestMarker = marker;
+
+          // Extract place data from marker
+          final markerId = marker.markerId.value;
+          final position = marker.position;
+          final title = marker.infoWindow.title ?? 'Unknown Place';
+          final snippet = marker.infoWindow.snippet ?? '';
+
+          nearestPlace = {
+            'place_id': markerId,
+            'name': title,
+            'vicinity': snippet,
+            'geometry': {
+              'location': {
+                'lat': position.latitude,
+                'lng': position.longitude,
+              }
+            },
+            'distance': {
+              'text': distanceText,
+              'value': distance.toInt(),
+            },
+            'duration': {
+              'text': estimatedTravelTime,
+              'value': _estimateTravelTimeInSeconds(distance),
+            }
+          };
+        }
+      }
+    }
+
+    // Create a special marker for the nearest place
+    if (nearestMarker != null) {
+      _nearestPlaceMarker = Marker(
+        markerId: MarkerId('nearest_${nearestMarker.markerId.value}'),
+        position: nearestMarker.position,
+        infoWindow: InfoWindow(
+          title: '${nearestMarker.infoWindow.title} (Nearest Place)',
+          snippet: travelTime != null
+              ? 'Travel time: $travelTime'
+              : nearestMarker.infoWindow.snippet,
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        zIndex: 2, // Make it appear above other markers
+        onTap: () async {
+          if (nearestPlace != null) {
+            try {
+              final details =
+                  await PlacesService.getPlaceDetails(nearestPlace['place_id']);
+              if (details != null) {
+                _handlePlaceSelected(details);
+              } else {
+                _handlePlaceSelected(nearestPlace);
+              }
+            } catch (e) {
+              debugPrint('Error getting nearest place details: $e');
+              _handlePlaceSelected(nearestPlace);
+            }
+          }
+        },
+      );
+    }
+
+    _nearestPlace = nearestPlace;
+    _nearestPlaceDistance = minDistance;
+    _nearestPlaceTravelTime = travelTime;
+
+    // Notify about the nearest place
+    if (onNearestPlaceChanged != null) {
+      onNearestPlaceChanged!(nearestPlace, minDistance, travelTime);
+    }
+
+    // Update markers to include the nearest place marker
+    _updateMarkers();
+  }
+
+  /// Get directions to the selected place using external Google Maps
+  Future<bool> getDirectionsToNearestPlace() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place == null) return false;
+
+    try {
+      final lat = (place['geometry']['location']['lat'] as num).toDouble();
+      final lng = (place['geometry']['location']['lng'] as num).toDouble();
+      final url =
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng';
+
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error opening directions to place: $e');
+      onError(
+          'Navigation Error', 'Could not open directions. Please try again.');
+      return false;
+    }
+  }
+
+  /// Show route to the selected place on the map
+  Future<bool> showRouteToNearestPlace() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place == null) return false;
+
+    try {
+      // Clear existing polylines
+      _polylines = {};
+
+      // Get destination coordinates
+      final destLat = (place['geometry']['location']['lat'] as num).toDouble();
+      final destLng = (place['geometry']['location']['lng'] as num).toDouble();
+
+      // Get the most accurate current location from GPS
+      LatLng originLocation;
+      try {
+        // Try to get the most accurate current location from GPS
+        final Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        originLocation = LatLng(position.latitude, position.longitude);
+
+        // Update the current location
+        _currentLocation = originLocation;
+        onLocationChanged(_currentLocation);
+
+        debugPrint(
+            'Using GPS location for route: ${position.latitude}, ${position.longitude}');
+      } catch (e) {
+        // Fallback to the stored current location if GPS fails
+        originLocation = _currentLocation;
+        debugPrint(
+            'Using stored location for route: ${_currentLocation.latitude}, ${_currentLocation.longitude}');
+      }
+
+      debugPrint(
+          'Getting directions from: ${originLocation.latitude},${originLocation.longitude} to: $destLat,$destLng');
+
+      // Get directions using Directions API
+      final directions = await PlacesService.getDirections(
+        originLat: originLocation.latitude,
+        originLng: originLocation.longitude,
+        destLat: destLat,
+        destLng: destLng,
+      );
+
+      if (directions['status'] == 'OK') {
+        // Store route data
+        _routeData = directions;
+
+        // Decode polyline points
+        final points =
+            PolylineUtils.decodePolyline(directions['polyline_points']);
+
+        debugPrint('Route points count: ${points.length}');
+        if (points.isEmpty) {
+          debugPrint('Warning: No points in polyline');
+          onError('Route Error', 'No route points found. Please try again.');
+          return false;
+        }
+
+        // Create polyline with improved visibility
+        final polyline = Polyline(
+          polylineId: const PolylineId('route'),
+          points: points,
+          color: Colors.blue,
+          width: 8, // Increased width for better visibility
+          // Use solid line for main route (no pattern)
+          patterns: const [],
+          endCap: Cap.roundCap,
+          startCap: Cap.roundCap,
+          jointType: JointType.round,
+        );
+
+        // Add polyline to set
+        _polylines = {polyline};
+
+        // Add a marker for the current location (origin of the route)
+        final currentLocationMarker = Marker(
+          markerId: const MarkerId('current_location'),
+          position: originLocation,
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(
+            title: 'موقعك الحالي',
+            snippet: 'نقطة بداية المسار',
+          ),
+          zIndex: 3, // Make it appear above other markers
+        );
+
+        // Update markers to include current location marker
+        final updatedMarkers = {..._markers, ..._userMarkers};
+        if (_nearestPlaceMarker != null) {
+          updatedMarkers.add(_nearestPlaceMarker!);
+        }
+        updatedMarkers.add(currentLocationMarker);
+        onMarkersChanged(updatedMarkers);
+
+        // Update polylines
+        onPolylinesChanged(_polylines);
+
+        // Update route state
+        _isShowingRoute = true;
+
+        // Notify about route change
+        if (onRouteChanged != null) {
+          onRouteChanged!(directions);
+        }
+
+        // Include origin and destination in the bounds calculation
+        List<LatLng> boundPoints = [...points];
+        boundPoints.add(_currentLocation); // Add current location
+        boundPoints.add(LatLng(destLat, destLng)); // Add destination
+
+        // Move camera to show the entire route with improved bounds calculation
+        if (_mapController != null && boundPoints.isNotEmpty) {
+          // Calculate bounds
+          double minLat = boundPoints.first.latitude;
+          double maxLat = boundPoints.first.latitude;
+          double minLng = boundPoints.first.longitude;
+          double maxLng = boundPoints.first.longitude;
+
+          for (var point in boundPoints) {
+            if (point.latitude < minLat) minLat = point.latitude;
+            if (point.latitude > maxLat) maxLat = point.latitude;
+            if (point.longitude < minLng) minLng = point.longitude;
+            if (point.longitude > maxLng) maxLng = point.longitude;
+          }
+
+          // Add more padding to ensure the entire route is visible
+          final latPadding =
+              max((maxLat - minLat) * 0.3, 0.005); // Minimum padding
+          final lngPadding =
+              max((maxLng - minLng) * 0.3, 0.005); // Minimum padding
+
+          // Create bounds
+          final bounds = LatLngBounds(
+            southwest: LatLng(minLat - latPadding, minLng - lngPadding),
+            northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
+          );
+
+          debugPrint(
+              'Camera bounds: SW(${bounds.southwest.latitude},${bounds.southwest.longitude}) NE(${bounds.northeast.latitude},${bounds.northeast.longitude})');
+
+          // Animate camera with a delay to ensure the map is ready
+          await Future.delayed(const Duration(milliseconds: 300));
+          try {
+            await _mapController!.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 100), // Increased padding
+            );
+
+            // Add a second camera update with a slight zoom out to ensure visibility
+            await Future.delayed(const Duration(milliseconds: 500));
+            final currentZoom = await _mapController!.getZoomLevel();
+            if (currentZoom > 16) {
+              await _mapController!.animateCamera(
+                CameraUpdate.zoomTo(16), // Limit maximum zoom
+              );
+            }
+          } catch (e) {
+            debugPrint('Error animating camera: $e');
+            // Fallback to a simpler camera update
+            await _mapController!.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                  target: LatLng(
+                    (minLat + maxLat) / 2,
+                    (minLng + maxLng) / 2,
+                  ),
+                  zoom: 14.0,
+                ),
+              ),
+            );
+          }
+        }
+
+        return true;
+      } else {
+        debugPrint('Route API error: ${directions['status']}');
+        onError('Route Error', 'Could not find a route to the destination.');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error showing route to nearest place: $e');
+      onError('Route Error', 'Could not show route. Please try again.');
+      return false;
+    }
+  }
+
+  /// Clear the route from the map
+  void clearRoute() {
+    _polylines = {};
+    _isShowingRoute = false;
+    _routeData = null;
+
+    // Update polylines
+    onPolylinesChanged(_polylines);
+
+    // Remove the current location marker
+    final updatedMarkers = {..._markers, ..._userMarkers};
+    if (_nearestPlaceMarker != null) {
+      updatedMarkers.add(_nearestPlaceMarker!);
+    }
+    // Note: we're not adding the current_location marker here
+    onMarkersChanged(updatedMarkers);
+
+    // Notify about route change
+    if (onRouteChanged != null) {
+      onRouteChanged!(null);
+    }
+  }
+
+  /// Show alternative routes to the selected place
+  Future<bool> showAlternativeRoutes() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place == null) return false;
+
+    try {
+      // Clear existing polylines
+      _polylines = {};
+
+      // Get destination coordinates
+      final destLat = (place['geometry']['location']['lat'] as num).toDouble();
+      final destLng = (place['geometry']['location']['lng'] as num).toDouble();
+
+      // Get the most accurate current location from GPS
+      LatLng originLocation;
+      try {
+        // Try to get the most accurate current location from GPS
+        final Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        originLocation = LatLng(position.latitude, position.longitude);
+
+        // Update the current location
+        _currentLocation = originLocation;
+        onLocationChanged(_currentLocation);
+
+        debugPrint(
+            'Using GPS location for alternative routes: ${position.latitude}, ${position.longitude}');
+      } catch (e) {
+        // Fallback to the stored current location if GPS fails
+        originLocation = _currentLocation;
+        debugPrint(
+            'Using stored location for alternative routes: ${_currentLocation.latitude}, ${_currentLocation.longitude}');
+      }
+
+      debugPrint(
+          'Getting alternative routes from: ${originLocation.latitude},${originLocation.longitude} to: $destLat,$destLng');
+
+      // Get routes using Routes API
+      final routesResult = await PlacesService.getRoutes(
+        originLat: originLocation.latitude,
+        originLng: originLocation.longitude,
+        destLat: destLat,
+        destLng: destLng,
+      );
+
+      if (routesResult['status'] == 'OK' &&
+          routesResult['routes'] != null &&
+          routesResult['routes'] is List &&
+          (routesResult['routes'] as List).isNotEmpty) {
+        // Store route data
+        _routeData = routesResult;
+
+        // Create polylines for each route
+        final routes = routesResult['routes'] as List;
+        Set<Polyline> polylines = {};
+
+        debugPrint('Found ${routes.length} alternative routes');
+
+        // Colors for different routes
+        final colors = [
+          Colors.blue,
+          Colors.green,
+          Colors.red,
+        ];
+
+        // All points from all routes for bounds calculation
+        List<LatLng> allPoints = [];
+
+        for (int i = 0; i < routes.length && i < colors.length; i++) {
+          final route = routes[i];
+          final encodedPolyline =
+              route['polyline']['encodedPolyline'] as String;
+          final points = PolylineUtils.decodePolyline(encodedPolyline);
+
+          debugPrint('Route $i has ${points.length} points');
+
+          if (points.isEmpty) {
+            debugPrint('Warning: No points in polyline for route $i');
+            continue;
+          }
+
+          // Add points to the collection for bounds calculation
+          allPoints.addAll(points);
+
+          // Create polyline with improved visibility
+          polylines.add(
+            Polyline(
+              polylineId: PolylineId('route_$i'),
+              points: points,
+              color: colors[i],
+              width: i == 0 ? 8 : 5, // Increased width for better visibility
+              patterns: i == 0
+                  ? const [] // Main route is solid
+                  : [
+                      PatternItem.dash(20),
+                      PatternItem.gap(10)
+                    ], // Alternative routes are dashed
+              endCap: Cap.roundCap,
+              startCap: Cap.roundCap,
+              jointType: JointType.round,
+            ),
+          );
+        }
+
+        if (polylines.isEmpty) {
+          debugPrint('No valid routes found');
+          onError('Route Error', 'No valid routes found. Please try again.');
+          return false;
+        }
+
+        // Update polylines
+        _polylines = polylines;
+        onPolylinesChanged(_polylines);
+
+        // Add a marker for the current location (origin of the route)
+        final currentLocationMarker = Marker(
+          markerId: const MarkerId('current_location'),
+          position: originLocation,
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(
+            title: 'موقعك الحالي',
+            snippet: 'نقطة بداية المسار',
+          ),
+          zIndex: 3, // Make it appear above other markers
+        );
+
+        // Update markers to include current location marker
+        final updatedMarkers = {..._markers, ..._userMarkers};
+        if (_nearestPlaceMarker != null) {
+          updatedMarkers.add(_nearestPlaceMarker!);
+        }
+        updatedMarkers.add(currentLocationMarker);
+        onMarkersChanged(updatedMarkers);
+
+        // Update route state
+        _isShowingRoute = true;
+
+        // Notify about route change
+        if (onRouteChanged != null) {
+          onRouteChanged!(routesResult);
+        }
+
+        // Include origin and destination in the bounds calculation
+        allPoints.add(_currentLocation); // Add current location
+        allPoints.add(LatLng(destLat, destLng)); // Add destination
+
+        // Move camera to show all routes
+        if (_mapController != null && allPoints.isNotEmpty) {
+          // Calculate bounds
+          double minLat = allPoints.first.latitude;
+          double maxLat = allPoints.first.latitude;
+          double minLng = allPoints.first.longitude;
+          double maxLng = allPoints.first.longitude;
+
+          for (var point in allPoints) {
+            if (point.latitude < minLat) minLat = point.latitude;
+            if (point.latitude > maxLat) maxLat = point.latitude;
+            if (point.longitude < minLng) minLng = point.longitude;
+            if (point.longitude > maxLng) maxLng = point.longitude;
+          }
+
+          // Add more padding to ensure all routes are visible
+          final latPadding =
+              max((maxLat - minLat) * 0.3, 0.005); // Minimum padding
+          final lngPadding =
+              max((maxLng - minLng) * 0.3, 0.005); // Minimum padding
+
+          // Create bounds
+          final bounds = LatLngBounds(
+            southwest: LatLng(minLat - latPadding, minLng - lngPadding),
+            northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
+          );
+
+          debugPrint(
+              'Camera bounds for all routes: SW(${bounds.southwest.latitude},${bounds.southwest.longitude}) NE(${bounds.northeast.latitude},${bounds.northeast.longitude})');
+
+          // Animate camera with a delay to ensure the map is ready
+          await Future.delayed(const Duration(milliseconds: 300));
+          try {
+            await _mapController!.animateCamera(
+              CameraUpdate.newLatLngBounds(bounds, 100), // Increased padding
+            );
+
+            // Add a second camera update with a slight zoom out to ensure visibility
+            await Future.delayed(const Duration(milliseconds: 500));
+            final currentZoom = await _mapController!.getZoomLevel();
+            if (currentZoom > 15) {
+              await _mapController!.animateCamera(
+                CameraUpdate.zoomTo(
+                    15), // Limit maximum zoom for alternative routes
+              );
+            }
+          } catch (e) {
+            debugPrint('Error animating camera: $e');
+            // Fallback to a simpler camera update
+            await _mapController!.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                  target: LatLng(
+                    (minLat + maxLat) / 2,
+                    (minLng + maxLng) / 2,
+                  ),
+                  zoom: 13.0, // Slightly lower zoom for alternative routes
+                ),
+              ),
+            );
+          }
+        }
+
+        return true;
+      } else {
+        debugPrint('Route API error: ${routesResult['status']}');
+        if (routesResult.containsKey('message')) {
+          debugPrint('Error message: ${routesResult['message']}');
+        }
+        onError('Route Error',
+            'Could not find alternative routes to the destination.');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error showing alternative routes: $e');
+      onError('Route Error',
+          'Could not show alternative routes. Please try again.');
+      return false;
+    }
   }
 
   /// Update camera position

@@ -1,5 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 
 class PlacesService {
@@ -31,6 +33,19 @@ class PlacesService {
       if (types.isNotEmpty) {
         final typesString = types.join('|');
         url += '&type=$typesString';
+      }
+
+      // تحسين البحث عن طريق إضافة rankby=distance للحصول على أقرب النتائج
+      // ملاحظة: لا يمكن استخدام radius مع rankby=distance حسب توثيق Google
+      // لذلك نستخدم هذا فقط في حالات معينة
+      if (types.contains('car_repair') &&
+          keyword != null &&
+          (keyword.contains('winch') ||
+              keyword.contains('ونش') ||
+              keyword.contains('tow'))) {
+        // إزالة radius من URL لأنه لا يمكن استخدامه مع rankby=distance
+        url = url.replaceAll(RegExp(r'&radius=\d+'), '');
+        url += '&rankby=distance';
       }
 
       // إضافة keyword إذا كان متوفراً
@@ -120,20 +135,38 @@ class PlacesService {
   // الحصول على تفاصيل مكان معين
   static Future<Map<String, dynamic>?> getPlaceDetails(String placeId) async {
     try {
+      // إضافة المزيد من الحقول للحصول على معلومات أكثر تفصيلاً
       final url =
-          '$_baseUrl/details/json?place_id=$placeId&fields=name,formatted_address,geometry,rating,opening_hours,photos&key=$_apiKey';
+          '$_baseUrl/details/json?place_id=$placeId&fields=name,formatted_address,geometry,rating,opening_hours,photos,types,business_status,formatted_phone_number,international_phone_number,website,url,reviews&key=$_apiKey';
 
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'OK') {
-          return data['result'];
+          final result = data['result'];
+
+          // إضافة معلومات إضافية للتصنيف
+          if (result.containsKey('types') && result['types'] is List) {
+            final types = result['types'] as List;
+
+            // تحديد نوع المكان بشكل أكثر دقة
+            if (types.contains('gas_station')) {
+              result['place_category'] = 'محطة بنزين';
+            } else if (types.contains('car_repair') &&
+                (result['name'].toString().toLowerCase().contains('ونش') ||
+                    result['name'].toString().toLowerCase().contains('winch') ||
+                    result['name'].toString().toLowerCase().contains('tow'))) {
+              result['place_category'] = 'ونش إنقاذ سيارات';
+            }
+          }
+
+          return result;
         }
       }
       return null;
     } catch (e) {
-      print('Error getting place details: $e');
+      debugPrint('Error getting place details: $e');
       return null;
     }
   }
@@ -149,7 +182,7 @@ class PlacesService {
       case TextStrings.homeGas:
         return {
           'type': 'gas_station',
-          'keyword': 'gas station fuel محطة وقود بنزين',
+          'keyword': 'petrol station fuel محطة بنزين وقود',
         };
       case TextStrings.homePolice:
         return {
@@ -173,8 +206,8 @@ class PlacesService {
         };
       case TextStrings.homeWinch:
         return {
-          'type': 'car_dealer',
-          'keyword': 'tow truck winch ونش سطحة',
+          'type': 'car_repair',
+          'keyword': 'tow truck winch recovery ونش انقاذ سيارات سطحة',
         };
       default:
         print('❌ Unknown filter type: $filterType');
@@ -188,5 +221,263 @@ class PlacesService {
   // للتوافق مع الكود القديم
   static String getPlaceType(String filterType) {
     return getPlaceTypeAndKeyword(filterType)['type'];
+  }
+
+  // استخدام Distance Matrix API لحساب المسافة ووقت الوصول
+  static Future<Map<String, dynamic>> getDistanceMatrix({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+    String mode = 'driving', // driving, walking, bicycling, transit
+  }) async {
+    try {
+      final String url =
+          'https://maps.googleapis.com/maps/api/distancematrix/json'
+          '?origins=$originLat,$originLng'
+          '&destinations=$destLat,$destLng'
+          '&mode=$mode'
+          '&key=$_apiKey';
+
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['status'] == 'OK') {
+          final elements = data['rows'][0]['elements'][0];
+
+          if (elements['status'] == 'OK') {
+            return {
+              'distance': {
+                'text': elements['distance']['text'],
+                'value': elements['distance']['value'], // بالمتر
+              },
+              'duration': {
+                'text': elements['duration']['text'],
+                'value': elements['duration']['value'], // بالثواني
+              },
+              'status': 'OK',
+            };
+          }
+        }
+      }
+
+      return {
+        'status': 'ERROR',
+        'message': 'Failed to get distance matrix',
+      };
+    } catch (e) {
+      debugPrint('Error in getDistanceMatrix: $e');
+      return {
+        'status': 'ERROR',
+        'message': 'Exception: $e',
+      };
+    }
+  }
+
+  // استخدام Directions API للحصول على تفاصيل المسار
+  static Future<Map<String, dynamic>> getDirections({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+    String mode = 'driving', // driving, walking, bicycling, transit
+  }) async {
+    try {
+      // Add additional parameters for better route results
+      final String url = 'https://maps.googleapis.com/maps/api/directions/json'
+          '?origin=$originLat,$originLng'
+          '&destination=$destLat,$destLng'
+          '&mode=$mode'
+          '&alternatives=false' // We only want the best route here
+          '&language=ar' // Arabic language for text instructions
+          '&units=metric' // Use metric units
+          '&key=$_apiKey';
+
+      debugPrint('Directions API Request URL: $url');
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        debugPrint('Directions API Response Status: ${data['status']}');
+
+        if (data['status'] == 'OK' &&
+            data['routes'] != null &&
+            data['routes'].isNotEmpty) {
+          // استخراج معلومات المسار
+          final route = data['routes'][0];
+          final leg = route['legs'][0];
+
+          // استخراج نقاط المسار لرسم خط المسار
+          final points = route['overview_polyline']['points'];
+
+          debugPrint('Route found with ${points.length} encoded characters');
+          debugPrint(
+              'Distance: ${leg['distance']['text']}, Duration: ${leg['duration']['text']}');
+
+          return {
+            'status': 'OK',
+            'distance': leg['distance'],
+            'duration': leg['duration'],
+            'start_address': leg['start_address'],
+            'end_address': leg['end_address'],
+            'steps': leg['steps'],
+            'polyline_points': points,
+          };
+        } else {
+          // Log more detailed error information
+          debugPrint('Directions API Error: ${data['status']}');
+          if (data.containsKey('error_message')) {
+            debugPrint('Error Message: ${data['error_message']}');
+          }
+
+          return {
+            'status': data['status'] ?? 'ERROR',
+            'message': data['error_message'] ?? 'Failed to get directions',
+          };
+        }
+      } else {
+        debugPrint('HTTP Error: ${response.statusCode}');
+        debugPrint('Response Body: ${response.body}');
+
+        return {
+          'status': 'ERROR',
+          'message': 'HTTP Error: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error in getDirections: $e');
+      return {
+        'status': 'ERROR',
+        'message': 'Exception: $e',
+      };
+    }
+  }
+
+  // استخدام Routes API للحصول على مسارات متعددة
+  static Future<Map<String, dynamic>> getRoutes({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    try {
+      // First try the new Routes API
+      const String url =
+          'https://routes.googleapis.com/directions/v2:computeRoutes'
+          '?key=$_apiKey';
+
+      debugPrint(
+          'Getting alternative routes from: $originLat,$originLng to: $destLat,$destLng');
+
+      final Map<String, dynamic> requestBody = {
+        'origin': {
+          'location': {
+            'latLng': {'latitude': originLat, 'longitude': originLng}
+          }
+        },
+        'destination': {
+          'location': {
+            'latLng': {'latitude': destLat, 'longitude': destLng}
+          }
+        },
+        'travelMode': 'DRIVE',
+        'routingPreference': 'TRAFFIC_AWARE',
+        'computeAlternativeRoutes': true,
+        'routeModifiers': {
+          'avoidTolls': false,
+          'avoidHighways': false,
+          'avoidFerries': false
+        },
+        'languageCode': 'ar'
+      };
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': _apiKey,
+          'X-Goog-FieldMask':
+              'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline'
+        },
+        body: json.encode(requestBody),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data.containsKey('routes') &&
+            data['routes'] is List &&
+            (data['routes'] as List).isNotEmpty) {
+          debugPrint(
+              'Routes API returned ${(data['routes'] as List).length} routes');
+          return {
+            'status': 'OK',
+            'routes': data['routes'],
+          };
+        } else {
+          debugPrint(
+              'Routes API returned no routes, falling back to Directions API');
+        }
+      } else {
+        debugPrint('Routes API error: ${response.statusCode}');
+        debugPrint('Response: ${response.body}');
+      }
+
+      // Fallback to Directions API with alternatives if Routes API fails
+      final String directionsUrl =
+          'https://maps.googleapis.com/maps/api/directions/json'
+          '?origin=$originLat,$originLng'
+          '&destination=$destLat,$destLng'
+          '&mode=driving'
+          '&alternatives=true' // Request alternative routes
+          '&language=ar'
+          '&units=metric'
+          '&key=$_apiKey';
+
+      debugPrint('Falling back to Directions API for alternatives');
+      final directionsResponse = await http.get(Uri.parse(directionsUrl));
+
+      if (directionsResponse.statusCode == 200) {
+        final data = json.decode(directionsResponse.body);
+
+        if (data['status'] == 'OK' &&
+            data['routes'] != null &&
+            data['routes'].isNotEmpty) {
+          debugPrint(
+              'Directions API returned ${data['routes'].length} alternative routes');
+
+          // Convert Directions API format to Routes API format for consistency
+          List<Map<String, dynamic>> convertedRoutes = [];
+
+          for (var route in data['routes']) {
+            final points = route['overview_polyline']['points'];
+            final leg = route['legs'][0];
+
+            convertedRoutes.add({
+              'polyline': {'encodedPolyline': points},
+              'distanceMeters': leg['distance']['value'],
+              'duration': leg['duration']['text'],
+            });
+          }
+
+          return {
+            'status': 'OK',
+            'routes': convertedRoutes,
+          };
+        }
+      }
+
+      return {
+        'status': 'ERROR',
+        'message': 'Failed to get routes from both APIs',
+      };
+    } catch (e) {
+      debugPrint('Error in getRoutes: $e');
+      return {
+        'status': 'ERROR',
+        'message': 'Exception: $e',
+      };
+    }
   }
 }

@@ -30,6 +30,18 @@ class MapScreenState extends State<MapScreen> {
   bool _isLoading = true;
   int _selectedIndex = 1;
   Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+
+  // Nearest place data
+  Map<String, dynamic>? _nearestPlace;
+  Map<String, dynamic>? _selectedPlace;
+  double? _nearestPlaceDistance;
+  String? _nearestPlaceTravelTime;
+  bool _showPlaceInfo = false;
+
+  // Route data
+  Map<String, dynamic>? _routeData;
+  bool _isShowingRoute = false;
 
   // Timers
   Timer? _locationUpdateTimer;
@@ -58,6 +70,13 @@ class MapScreenState extends State<MapScreen> {
           });
         }
       },
+      onPolylinesChanged: (polylines) {
+        if (mounted) {
+          setState(() {
+            _polylines = polylines;
+          });
+        }
+      },
       onLocationChanged: (location) {
         if (mounted) {
           setState(() {
@@ -76,7 +95,29 @@ class MapScreenState extends State<MapScreen> {
       },
       onPlaceSelected: (details) {
         if (mounted) {
+          setState(() {
+            _selectedPlace = details;
+            _showPlaceInfo = true;
+          });
           PlaceDetailsBottomSheet.show(context, details);
+        }
+      },
+      onNearestPlaceChanged: (place, distance, travelTime) {
+        if (mounted) {
+          setState(() {
+            _nearestPlace = place;
+            _nearestPlaceDistance = distance;
+            _nearestPlaceTravelTime = travelTime;
+            _showPlaceInfo = place != null;
+          });
+        }
+      },
+      onRouteChanged: (routeData) {
+        if (mounted) {
+          setState(() {
+            _routeData = routeData;
+            _isShowingRoute = routeData != null;
+          });
         }
       },
     );
@@ -115,29 +156,29 @@ class MapScreenState extends State<MapScreen> {
     // Obtener los argumentos
     final arguments = ModalRoute.of(context)?.settings.arguments;
 
-    // Verificar si los argumentos son del nuevo formato (mapa con filtros y coordenadas)
+    // التحقق مما إذا كانت الوسائط بالتنسيق الجديد (خريطة مع مرشحات وإحداثيات)
     if (arguments is Map<String, dynamic>) {
-      // Extraer los filtros
+      // استخراج المرشحات
       final filters = arguments['filters'] as Map<String, bool>?;
       if (filters != null) {
         _mapController.setFilters(filters);
       }
 
-      // Extraer las coordenadas
+      // استخراج الإحداثيات
       final latitude = arguments['latitude'] as double?;
       final longitude = arguments['longitude'] as double?;
 
       if (latitude != null && longitude != null) {
-        // Actualizar la ubicación actual
+        // تحديث الموقع الحالي
         setState(() {
           _currentLocation = LatLng(latitude, longitude);
         });
 
-        // Actualizar la ubicación en el controlador del mapa
+        // تحديث الموقع في وحدة تحكم الخريطة
         _mapController.updateCurrentLocation(_currentLocation);
 
-        // Mover la cámara a la ubicación actual cuando esté disponible
-        // Esto se ejecutará después de que el mapa se haya creado
+        // تحريك الكاميرا إلى الموقع الحالي عندما يكون متاحًا
+        // سيتم تنفيذ هذا بعد إنشاء الخريطة
         Future.delayed(Duration.zero, () {
           try {
             mapController.animateCamera(
@@ -146,7 +187,7 @@ class MapScreenState extends State<MapScreen> {
               ),
             );
           } catch (e) {
-            debugPrint('Error al mover la cámara: $e');
+            debugPrint('Error moving camera: $e');
           }
         });
       }
@@ -304,21 +345,219 @@ class MapScreenState extends State<MapScreen> {
     double titleSize,
     bool isDesktop,
   ) {
-    return GoogleMap(
-      onMapCreated: _onMapCreated,
-      initialCameraPosition: CameraPosition(
-        target: _currentLocation,
-        zoom: 15.0,
+    return Stack(
+      children: [
+        GoogleMap(
+          onMapCreated: _onMapCreated,
+          initialCameraPosition: CameraPosition(
+            target: _currentLocation,
+            zoom: 15.0,
+          ),
+          markers: _markers,
+          polylines: _polylines,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: true,
+          compassEnabled: true,
+          onCameraMove: (CameraPosition position) {
+            _mapController.onCameraMove(position);
+          },
+        ),
+
+        // Place info card (for nearest or selected place)
+        if (_showPlaceInfo && (_nearestPlace != null || _selectedPlace != null))
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: _buildNearestPlaceCard(context),
+          ),
+      ],
+    );
+  }
+
+  // Build place info card (for nearest or selected place)
+  Widget _buildNearestPlaceCard(BuildContext context) {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place == null) return const SizedBox.shrink();
+
+    final name = place['name'] as String? ?? 'Unknown Place';
+
+    // Format distance
+    final distance = place['distance'] != null &&
+            place['distance']['text'] != null
+        ? place['distance']['text'] as String
+        : _nearestPlaceDistance != null
+            ? (_nearestPlaceDistance! < 1000
+                ? '${_nearestPlaceDistance!.toInt()} م'
+                : '${(_nearestPlaceDistance! / 1000).toStringAsFixed(1)} كم')
+            : 'المسافة غير معروفة';
+
+    // Get travel time
+    final travelTime =
+        place['duration'] != null && place['duration']['text'] != null
+            ? place['duration']['text'] as String
+            : _nearestPlaceTravelTime ?? 'الوقت غير معروف';
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: AppColors.getCardColor(context),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on,
+                  color: Colors.blue,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'أقرب مكان',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.getLabelTextField(context)
+                              .withOpacity(0.7),
+                        ),
+                      ),
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.getLabelTextField(context),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        distance,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                    if (travelTime.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            travelTime,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // First row of buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showNearestPlaceDetails,
+                    icon: const Icon(Icons.info_outline, size: 16),
+                    label: const Text('التفاصيل'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.getBackgroundColor(context),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isShowingRoute
+                        ? _clearRoute
+                        : _showRouteToNearestPlace,
+                    icon: Icon(_isShowingRoute ? Icons.close : Icons.map,
+                        size: 16),
+                    label:
+                        Text(_isShowingRoute ? 'إخفاء المسار' : 'إظهار المسار'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          _isShowingRoute ? Colors.red.shade700 : Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Second row of buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showAlternativeRoutes,
+                    icon: const Icon(Icons.alt_route, size: 16),
+                    label: const Text('مسارات بديلة'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _navigateToNearestPlace,
+                    icon: const Icon(Icons.directions, size: 16),
+                    label: const Text('الملاحة'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-      markers: _markers,
-      myLocationEnabled: true,
-      myLocationButtonEnabled: true,
-      mapToolbarEnabled: false,
-      zoomControlsEnabled: true,
-      compassEnabled: true,
-      onCameraMove: (CameraPosition position) {
-        _mapController.onCameraMove(position);
-      },
     );
   }
 
@@ -372,6 +611,74 @@ class MapScreenState extends State<MapScreen> {
     ];
     if (index < routes.length) {
       Navigator.pushNamed(context, routes[index]);
+    }
+  }
+
+  // Navigate to the selected place using external Google Maps
+  Future<void> _navigateToNearestPlace() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place != null) {
+      await _mapController.getDirectionsToNearestPlace();
+    } else if (mounted) {
+      NotificationService.showValidationError(
+        context,
+        'No place found. Please try again with a different filter.',
+      );
+    }
+  }
+
+  // Show place details
+  void _showNearestPlaceDetails() {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place != null) {
+      PlaceDetailsBottomSheet.show(context, place);
+    }
+  }
+
+  // Show route to the selected place on the map
+  Future<void> _showRouteToNearestPlace() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place != null) {
+      final success = await _mapController.showRouteToNearestPlace();
+      if (!success && mounted) {
+        NotificationService.showValidationError(
+          context,
+          'Could not show route. Please try again.',
+        );
+      }
+    } else if (mounted) {
+      NotificationService.showValidationError(
+        context,
+        'No place found. Please try again with a different filter.',
+      );
+    }
+  }
+
+  // Clear the route from the map
+  void _clearRoute() {
+    _mapController.clearRoute();
+  }
+
+  // Show alternative routes to the selected place
+  Future<void> _showAlternativeRoutes() async {
+    // Use selected place if available, otherwise use nearest place
+    final place = _selectedPlace ?? _nearestPlace;
+    if (place != null) {
+      final success = await _mapController.showAlternativeRoutes();
+      if (!success && mounted) {
+        NotificationService.showValidationError(
+          context,
+          'Could not show alternative routes. Please try again.',
+        );
+      }
+    } else if (mounted) {
+      NotificationService.showValidationError(
+        context,
+        'No place found. Please try again with a different filter.',
+      );
     }
   }
 }

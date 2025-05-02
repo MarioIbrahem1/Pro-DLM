@@ -67,45 +67,73 @@ class PlaceDetailsBottomSheet extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            details['name'] as String? ?? 'Unknown Place',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.getLabelTextField(context),
-            ),
-          ),
-        ),
-        if (details['opening_hours'] != null)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: (details['opening_hours']['open_now'] as bool?) ?? false
-                  ? AppColors.basicButton.withOpacity(0.2)
-                  : Colors.red.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: (details['opening_hours']['open_now'] as bool?) ?? false
-                    ? AppColors.basicButton
-                    : Colors.red,
-                width: 0.5,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                details['name'] as String? ?? 'Unknown Place',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.getLabelTextField(context),
+                ),
               ),
             ),
-            child: Text(
-              (details['opening_hours']['open_now'] as bool?) ?? false
-                  ? 'Open'
-                  : 'Closed',
-              style: TextStyle(
-                color: (details['opening_hours']['open_now'] as bool?) ?? false
-                    ? AppColors.getLabelTextField(context)
-                    : Colors.red,
-                fontWeight: FontWeight.bold,
+            if (details['opening_hours'] != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      (details['opening_hours']['open_now'] as bool?) ?? false
+                          ? AppColors.basicButton.withOpacity(0.2)
+                          : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                        (details['opening_hours']['open_now'] as bool?) ?? false
+                            ? AppColors.basicButton
+                            : Colors.red,
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  (details['opening_hours']['open_now'] as bool?) ?? false
+                      ? 'Open'
+                      : 'Closed',
+                  style: TextStyle(
+                    color:
+                        (details['opening_hours']['open_now'] as bool?) ?? false
+                            ? AppColors.getLabelTextField(context)
+                            : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        // إضافة نوع المكان إذا كان متوفراً
+        if (details['place_category'] != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.getSignAndRegister(context).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                details['place_category'] as String,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.getSignAndRegister(context),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
