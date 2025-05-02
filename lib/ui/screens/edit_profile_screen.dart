@@ -1,7 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:road_helperr/services/profile_service.dart';
 import 'package:road_helperr/models/profile_data.dart';
 import 'edit_text_field.dart';
@@ -22,8 +19,6 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final ImagePicker _picker = ImagePicker();
-  XFile? _image;
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -34,13 +29,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _carKindController = TextEditingController();
   final _profileService = ProfileService();
   bool _isLoading = false;
+  ProfileData? _profileData;
 
   @override
   void initState() {
     super.initState();
-    print('EditProfileScreen initialized with email: ${widget.email}');
     if (widget.initialData != null) {
-      print('Initial data: ${widget.initialData!.toJson()}');
       final nameParts = widget.initialData!.name.split(' ');
       _firstNameController.text = nameParts.isNotEmpty ? nameParts[0] : '';
       _lastNameController.text =
@@ -50,8 +44,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _carNumberController.text = widget.initialData!.plateNumber ?? '';
       _carColorController.text = widget.initialData!.carColor ?? '';
       _carKindController.text = widget.initialData!.carModel ?? '';
+      _profileData = widget.initialData;
     } else {
-      print('No initial data provided');
       _emailController.text = widget.email;
     }
   }
@@ -68,22 +62,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _image = image;
-      });
-    }
-  }
-
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() {
       _isLoading = true;
     });
-
     try {
       final updatedData = ProfileData(
         name:
@@ -95,10 +78,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         carColor: _carColorController.text.trim(),
         plateNumber: _carNumberController.text.trim(),
       );
-
-      print('Updating profile with data: ${updatedData.toJson()}');
       await _profileService.updateProfileData(widget.email, updatedData);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
@@ -106,7 +86,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Navigator.pop(context, updatedData);
       }
     } catch (e) {
-      print('Error updating profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error updating profile: $e')),
@@ -123,12 +102,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = MediaQuery.of(context).size;
         final isTablet = constraints.maxWidth > 600;
         final isDesktop = constraints.maxWidth > 1200;
-
         double titleSize = size.width *
             (isDesktop
                 ? 0.02
@@ -155,11 +134,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     : 0.05);
 
         return Scaffold(
-          backgroundColor: const Color(0xFF01122A),
+          backgroundColor: isLight ? Colors.white : const Color(0xFF01122A),
           appBar: AppBar(
             leading: IconButton(
-              icon: Icon(Icons.arrow_back_outlined,
-                  color: Colors.white, size: iconSize * 1.2),
+              icon: Icon(
+                Icons.arrow_back_outlined,
+                color: isLight ? Colors.black : Colors.white,
+                size: iconSize * 1.2,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             backgroundColor: Colors.transparent,
@@ -168,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             title: Text(
               "Edit Profile",
               style: TextStyle(
-                color: Colors.white,
+                color: isLight ? Colors.black : Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: titleSize,
               ),
@@ -178,9 +160,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                   child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 1200 : 800,
-                    ),
+                    constraints:
+                        BoxConstraints(maxWidth: isDesktop ? 1200 : 800),
                     padding: EdgeInsets.all(padding),
                     child: Form(
                       key: _formKey,
@@ -194,29 +175,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               children: [
                                 CircleAvatar(
                                   radius: avatarRadius,
-                                  backgroundColor: Colors.transparent,
-                                  backgroundImage: _image != null
-                                      ? FileImage(File(_image!.path))
-                                      : widget.initialData?.profileImage != null
-                                          ? NetworkImage(
-                                              widget.initialData!.profileImage!)
-                                          : const AssetImage(
-                                                  'assets/images/logo.png')
-                                              as ImageProvider,
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  right: avatarRadius * 0.3,
-                                  child: GestureDetector(
-                                    onTap: _pickImage,
-                                    child: CircleAvatar(
-                                      radius: avatarRadius * 0.25,
-                                      backgroundColor: const Color(0xFF2C4874),
-                                      child: Icon(
-                                        Icons.edit,
-                                        color: Colors.white,
-                                        size: iconSize,
-                                      ),
+                                  backgroundColor: isLight
+                                      ? const Color(0xFF86A5D9)
+                                      : Colors.transparent,
+                                  child: ClipOval(
+                                    child: SizedBox(
+                                      width: avatarRadius * 2,
+                                      height: avatarRadius * 2,
+                                      child: _profileData?.profileImage != null
+                                          ? Image.network(
+                                              _profileData!.profileImage!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(
+                                              color: isLight
+                                                  ? const Color(0xFF86A5D9)
+                                                  : const Color(0xFF2C4874),
+                                              child: Icon(
+                                                Icons.person,
+                                                size: avatarRadius,
+                                                color: Colors.white,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                 ),
@@ -261,24 +241,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             iconSize: 16,
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
+                            enabled: false,
                           ),
+                          SizedBox(height: size.height * 0.02),
                           Container(
                             margin: EdgeInsets.symmetric(horizontal: padding),
                             padding: EdgeInsets.all(padding),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(30),
-                              color: const Color(0xFF01122A),
+                              color: isLight
+                                  ? Colors.white
+                                  : const Color(0xFF01122A),
                               border: Border.all(
-                                color: Colors.grey,
+                                color: isLight ? Colors.black : Colors.grey,
                                 width: 3,
                               ),
                             ),
@@ -288,6 +263,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   "assets/images/car_settings_icon.png",
                                   width: iconSize * 1.5,
                                   height: iconSize * 1.5,
+                                  color: isLight ? Colors.black : Colors.white,
                                 ),
                                 SizedBox(width: size.width * 0.02),
                                 Text(
@@ -295,7 +271,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.w400,
                                     fontSize: titleSize * 0.7,
-                                    color: Colors.white,
+                                    color:
+                                        isLight ? Colors.black : Colors.white,
                                   ),
                                 ),
                                 const Spacer(),
@@ -305,7 +282,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   },
                                   child: Icon(
                                     Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.white,
+                                    color:
+                                        isLight ? Colors.black : Colors.white,
                                     size: iconSize * 1.5,
                                   ),
                                 ),
@@ -320,14 +298,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               height: size.height * 0.06,
                               child: ElevatedButton(
                                 onPressed: _updateProfile,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF023A87),
+                                style: ButtonStyle(
+                                  backgroundColor: WidgetStateProperty.all(
+                                    isLight
+                                        ? const Color(0xFF86A5D9)
+                                        : const Color(0xFF023A87),
+                                  ),
+                                  shape: WidgetStateProperty.all<
+                                      RoundedRectangleBorder>(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(30.0),
+                                    ),
+                                  ),
                                 ),
                                 child: Text(
                                   "Update Changes",
                                   style: TextStyle(
+                                    fontWeight: FontWeight.w500,
                                     fontSize: titleSize * 0.8,
-                                    color: Colors.white,
+                                    color: isLight
+                                        ? const Color(0xFF023A87)
+                                        : Colors.white,
                                   ),
                                 ),
                               ),
@@ -352,36 +343,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return LayoutBuilder(
           builder: (context, constraints) {
             final size = MediaQuery.of(context).size;
+            final isLight = Theme.of(context).brightness == Brightness.light;
             double iconSize = constraints.maxWidth * 0.06;
             double padding = constraints.maxWidth * 0.04;
             double fontSize = size.width * 0.04;
 
-            return Container(
-              height: size.height * 0.4,
-              padding: EdgeInsets.all(padding),
-              decoration: const BoxDecoration(
-                color: Color(0xFF01122A),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildCarSettingInput(
-                      "Car Number",
-                      "assets/images/car_number.png",
-                      _carNumberController,
-                    ),
-                    _buildCarSettingInput(
-                      "Car Color",
-                      "assets/images/car_color.png",
-                      _carColorController,
-                    ),
-                    _buildCarSettingInput(
-                      "Car Kind",
-                      "assets/images/password_icon.png",
-                      _carKindController,
-                    ),
-                  ],
+              child: Container(
+                height: size.height * 0.45,
+                padding: EdgeInsets.all(padding),
+                color: isLight ? Colors.white : const Color(0xFF01122A),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildCarSettingInput(
+                        "Car Number",
+                        "assets/images/car_number.png",
+                        _carNumberController,
+                        isLight,
+                        iconSize,
+                        padding,
+                        fontSize,
+                      ),
+                      _buildCarSettingInput(
+                        "Car Color",
+                        "assets/images/car_color.png",
+                        _carColorController,
+                        isLight,
+                        iconSize,
+                        padding,
+                        fontSize,
+                      ),
+                      _buildCarSettingInput(
+                        "Car Kind",
+                        "assets/images/password_icon.png",
+                        _carKindController,
+                        isLight,
+                        iconSize,
+                        padding,
+                        fontSize,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -392,32 +398,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildCarSettingInput(
-      String title, String iconPath, TextEditingController controller) {
+    String title,
+    String iconPath,
+    TextEditingController controller,
+    bool isLight,
+    double iconSize,
+    double padding,
+    double fontSize,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      padding: EdgeInsets.symmetric(
+          horizontal: padding * 0.8, vertical: padding * 0.4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+        padding: EdgeInsets.symmetric(
+            horizontal: padding * 0.8, vertical: padding * 0.6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          color: const Color(0xFF01122A),
-          border: Border.all(color: Colors.grey, width: 3),
+          borderRadius: BorderRadius.circular(20),
+          color: isLight ? Colors.white : const Color(0xFF01122A),
+          border: Border.all(
+              color: isLight ? Colors.black : Colors.grey, width: 1.5),
         ),
         child: Row(
           children: [
             Image.asset(
               iconPath,
-              width: 24,
-              height: 24,
+              width: iconSize * 0.7,
+              height: iconSize * 0.7,
+              color: isLight ? Colors.black : Colors.white,
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: padding * 0.5),
             Expanded(
               child: TextField(
                 controller: controller,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                    color: isLight ? Colors.black : Colors.white,
+                    fontSize: fontSize * 0.9),
                 decoration: InputDecoration(
                   hintText: title,
-                  hintStyle: const TextStyle(color: Colors.white54),
+                  hintStyle: TextStyle(
+                    color: isLight ? Colors.black54 : Colors.white54,
+                  ),
                   border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ),

@@ -19,8 +19,8 @@ class InfoCard extends StatelessWidget {
       builder: (context, constraints) {
         final dimensions = _calculateDimensions(context, constraints);
 
-        return platform == TargetPlatform.iOS ||
-                platform == TargetPlatform.macOS
+        return (platform == TargetPlatform.iOS ||
+                platform == TargetPlatform.macOS)
             ? _buildCupertinoCard(context, dimensions)
             : _buildMaterialCard(context, dimensions);
       },
@@ -28,27 +28,29 @@ class InfoCard extends StatelessWidget {
   }
 
   Widget _buildMaterialCard(BuildContext context, _CardDimensions dimensions) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: EdgeInsets.symmetric(
         horizontal: dimensions.horizontalMargin,
         vertical: dimensions.verticalMargin,
       ),
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1F3551) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(dimensions.borderRadius),
       ),
-      child: _buildCardContent(context, dimensions),
+      child: _buildCardContent(context, dimensions, isDark),
     );
   }
 
   Widget _buildCupertinoCard(BuildContext context, _CardDimensions dimensions) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: EdgeInsets.symmetric(
         horizontal: dimensions.horizontalMargin,
         vertical: dimensions.verticalMargin,
       ),
       decoration: BoxDecoration(
-        color: CupertinoColors.white,
+        color: isDark ? const Color(0xFF1F3551) : CupertinoColors.white,
         borderRadius: BorderRadius.circular(dimensions.borderRadius),
         boxShadow: [
           BoxShadow(
@@ -58,11 +60,12 @@ class InfoCard extends StatelessWidget {
           ),
         ],
       ),
-      child: _buildCardContent(context, dimensions),
+      child: _buildCardContent(context, dimensions, isDark),
     );
   }
 
-  Widget _buildCardContent(BuildContext context, _CardDimensions dimensions) {
+  Widget _buildCardContent(
+      BuildContext context, _CardDimensions dimensions, bool isDark) {
     return Container(
       constraints: BoxConstraints(
         maxWidth: dimensions.maxWidth,
@@ -80,20 +83,20 @@ class InfoCard extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: _getAdaptiveTextStyle(
-                context,
-                dimensions.titleFontSize,
-                FontWeight.w600,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black,
+                fontSize: dimensions.titleFontSize,
+                fontWeight: FontWeight.w600,
               ),
             ),
             SizedBox(height: dimensions.spacingHeight),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: _getAdaptiveTextStyle(
-                context,
-                dimensions.subtitleFontSize,
-                FontWeight.normal,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontSize: dimensions.subtitleFontSize,
+                fontWeight: FontWeight.normal,
               ),
             ),
           ],
@@ -102,42 +105,15 @@ class InfoCard extends StatelessWidget {
     );
   }
 
-  TextStyle _getAdaptiveTextStyle(
-    BuildContext context,
-    double fontSize,
-    FontWeight weight,
-  ) {
-    final platform = Theme.of(context).platform;
-
-    switch (platform) {
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-        return TextStyle(
-          color: CupertinoColors.black,
-          fontSize: fontSize,
-          fontWeight: weight,
-          fontFamily: '.SF Pro Text',
-        );
-      default:
-        return TextStyle(
-          color: Colors.black,
-          fontSize: fontSize,
-          fontWeight: weight,
-        );
-    }
-  }
-
   _CardDimensions _calculateDimensions(
       BuildContext context, BoxConstraints constraints) {
     final size = MediaQuery.of(context).size;
 
-    // الأحجام الأساسية
     double horizontalPadding = size.width * 0.1;
     double verticalPadding = size.height * 0.02;
     double titleFontSize = size.width * 0.04;
     double subtitleFontSize = size.width * 0.035;
 
-    // تعديل الأحجام حسب حجم الشاشة
     if (constraints.maxWidth > 600) {
       horizontalPadding = size.width * 0.08;
       titleFontSize = size.width * 0.03;
@@ -149,7 +125,6 @@ class InfoCard extends StatelessWidget {
       subtitleFontSize = size.width * 0.015;
     }
 
-    // تحديد الحد الأدنى والأقصى للخط
     titleFontSize = titleFontSize.clamp(16.0, 24.0);
     subtitleFontSize = subtitleFontSize.clamp(14.0, 20.0);
 

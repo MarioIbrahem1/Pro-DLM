@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,8 +10,8 @@ import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_scree
 import 'package:road_helperr/utils/app_colors.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import 'notification_screen.dart';
-import 'package:http/http.dart' as http;
 import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/services/places_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final int _selectedIndex = 0;
+  static const int _selectedIndex = 0;
   int pressCount = 0;
   Set<Marker> _markers = <Marker>{};
 
@@ -38,7 +37,15 @@ class _HomeScreenState extends State<HomeScreen> {
   double? currentLatitude;
   double? currentLongitude;
 
-  // عندما يغير اليوزر حالة الفلتر
+  int selectedServicesCount = 0;
+  String location = "Fetching location...";
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
   void toggleFilter(String key, bool value) {
     setState(() {
       serviceStates[key] = value;
@@ -49,13 +56,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> getFilteredServices() async {
     // جمع الفلاتر المختارة من الخدمة
     List<String> selectedKeys = serviceStates.entries
-        .where((entry) => entry.value) // اختار فقط الفلاتر المفعلة
+        .where((entry) => entry.value)
         .map((entry) => entry.key)
         .toList();
 
-    print("Selected filters: $selectedKeys"); // هنا هتشوف الفلاتر المرسلة
+    print("Selected filters: $selectedKeys");
 
-    // لو اليوزر ما اختاروش أي فلتر
     if (selectedKeys.isEmpty) {
       NotificationService.showValidationError(
         context,
@@ -64,80 +70,106 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // بناء الرابط لإرسال الفلاتر إلى الـ API
-    String placeTypes = selectedKeys.map((e) {
-      switch (e) {
-        case TextStrings.homeGas:
-          return 'gas_station';
-        case TextStrings.homePolice:
-          return 'police';
-        case TextStrings.homeFire:
-          return 'fire_station';
-        case TextStrings.homeHospital:
-          return 'hospital';
-        case TextStrings.homeMaintenance:
-          return 'car_repair';
-        case TextStrings.homeWinch:
-          return 'tow_truck';
-        default:
-          print('❌ Unknown filter type: $e');
-          return '';
-      }
-    }).join('|'); // دمج الفلاتر المختارة بفاصل "|"
+    // استخدام الدالة الجديدة للحصول على نوع المكان والكلمات المفتاحية
+    List<Map<String, dynamic>> selectedFilters = selectedKeys
+        .map((key) => PlacesService.getPlaceTypeAndKeyword(key))
+        .toList();
 
-    print('🔍 Sending request to Google Places API:');
-    print('Location: $currentLatitude, $currentLongitude');
-    print('Place Types: $placeTypes');
+    print('🔍 Selected filters with keywords: $selectedFilters');
 
-    // ارسال الريكويست للـ API جوجل ماب
-    var response = await http.get(
-      Uri.parse(
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$currentLatitude,$currentLongitude&radius=5000&type=$placeTypes&key=AIzaSyDGm9ZQELEZjPCOQWx2lxOOu5DDElcLc4Y",
-      ),
-    );
-
-    print('📡 API Response Status: ${response.statusCode}');
-    print('📡 API Response Body: ${response.body}');
-
-    // معالجة البيانات المسترجعة من الـ API
-    if (response.statusCode == 200) {
-      var data = jsonDecode(response.body);
-      print("Filtered Data: $data"); // هنا هتشوف الرد من الـ API
-      // استخدم البيانات المسترجعة لعرضها في الخريطة
-      _updateMapWithFilteredData(data);
-    } else {
-      print("Error fetching data!");
-    }
-  }
-
-  // هنا دالة لتحديث الماب بالبيانات الجديدة بعد الفلترة
-  void _updateMapWithFilteredData(var data) {
-    // إظهار الأماكن التي تطابق الفلتر
-    Set<Marker> filteredMarkers = <Marker>{};
-
-    for (var result in data['results']) {
-      var marker = Marker(
-        markerId: MarkerId(result['place_id']),
-        position: LatLng(result['geometry']['location']['lat'],
-            result['geometry']['location']['lng']),
-        infoWindow: InfoWindow(title: result['name']),
+    // الحصول على الموقع الحالي الفعلي
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
       );
-      filteredMarkers.add(marker);
+
+      // تحديث الموقع الحالي
+      setState(() {
+        currentLatitude = position.latitude;
+        currentLongitude = position.longitude;
+        print(
+            '📍 Current location updated: $currentLatitude, $currentLongitude');
+      });
+
+      // تحديث عنوان الموقع (يمكن إضافة هذه الوظيفة لاحقًا إذا لزم الأمر)
+    } catch (e) {
+      print('❌ Error getting current location: $e');
+      if (currentLatitude == null || currentLongitude == null) {
+        if (mounted) {
+          NotificationService.showValidationError(
+            context,
+            'Location not available. Please try again.',
+          );
+        }
+        return;
+      }
     }
 
+    // زيادة نصف قطر البحث للحصول على نتائج أكثر
+    const double searchRadius = 10000; // 10 كيلومتر بدلاً من 5
+
+    Set<Marker> allMarkers = {};
+
+    // معالجة كل نوع فلتر على حدة للحصول على نتائج أفضل
+    for (var filter in selectedFilters) {
+      final type = filter['type'] as String;
+      final keyword = filter['keyword'] as String;
+
+      print('🔍 Fetching places for type: $type, keyword: $keyword');
+
+      try {
+        // استخدام الميزات الجديدة في PlacesService
+        final places = await PlacesService.searchNearbyPlaces(
+          latitude: currentLatitude!,
+          longitude: currentLongitude!,
+          radius: searchRadius,
+          types: [type],
+          keyword: keyword,
+          fetchAllPages: true, // الحصول على جميع الصفحات
+        );
+
+        print(
+            '✅ Found ${places.length} places for type: $type, keyword: $keyword');
+
+        // إضافة العلامات للنتائج
+        for (var place in places) {
+          try {
+            final lat =
+                (place['geometry']['location']['lat'] as num).toDouble();
+            final lng =
+                (place['geometry']['location']['lng'] as num).toDouble();
+            final name = place['name'] as String? ?? 'Unknown Place';
+            final placeId =
+                place['place_id'] as String? ?? DateTime.now().toString();
+            final vicinity = place['vicinity'] as String? ?? '';
+
+            allMarkers.add(
+              Marker(
+                markerId: MarkerId(placeId),
+                position: LatLng(lat, lng),
+                infoWindow: InfoWindow(
+                  title: name,
+                  snippet: vicinity,
+                ),
+              ),
+            );
+          } catch (e) {
+            print('Error processing place: $e');
+            continue;
+          }
+        }
+      } catch (e) {
+        print('Error fetching places for type $type: $e');
+      }
+    }
+
+    print('📊 Total markers: ${allMarkers.length}');
+
+    // تحديث العلامات على الخريطة
     setState(() {
-      // تحديث الـ markers في الخريطة
-      _markers = filteredMarkers; // التأكد من أن _markers هو من نوع Set<Marker>
+      _markers = allMarkers;
     });
-  }
-
-  int selectedServicesCount = 0;
-  String location = "Fetching location...";
-
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -177,9 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
           content: const Text('Please select between 1 to 3 services.'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('OK'),
             ),
           ],
@@ -188,10 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _navigateToMap(BuildContext context) {
-    // تحويل الفلاتر المحددة إلى Map جديد يحتوي فقط على الفلاتر النشطة
+  Future<void> _navigateToMap(BuildContext context) async {
     Map<String, bool> activeFilters = {};
-
     if (serviceStates[TextStrings.homeHospital] ?? false) {
       activeFilters['Hospital'] = true;
     }
@@ -211,20 +239,57 @@ class _HomeScreenState extends State<HomeScreen> {
       activeFilters['Fire Station'] = true;
     }
 
-    print(
-        "Active Filters being sent to Map: $activeFilters"); // للتأكد من الفلاتر المرسلة
-
-    if (activeFilters.isNotEmpty) {
-      Navigator.pushNamed(
-        context,
-        MapScreen.routeName,
-        arguments: activeFilters, // إرسال الفلاتر النشطة فقط
-      );
-    } else {
+    if (activeFilters.isEmpty) {
       NotificationService.showValidationError(
         context,
         'Please select at least one service!',
       );
+      return;
+    }
+
+    // التأكد من تحديث الموقع الحالي قبل الانتقال إلى الخريطة
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+
+      // تحديث الموقع الحالي
+      setState(() {
+        currentLatitude = position.latitude;
+        currentLongitude = position.longitude;
+      });
+
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          MapScreen.routeName,
+          arguments: {
+            'filters': activeFilters,
+            'latitude': currentLatitude,
+            'longitude': currentLongitude,
+          },
+        );
+      }
+    } catch (e) {
+      // في حالة فشل الحصول على الموقع الحالي
+      if (currentLatitude != null && currentLongitude != null && mounted) {
+        // استخدام آخر موقع معروف إذا كان متاحًا
+        Navigator.pushNamed(
+          context,
+          MapScreen.routeName,
+          arguments: {
+            'filters': activeFilters,
+            'latitude': currentLatitude,
+            'longitude': currentLongitude,
+          },
+        );
+      } else if (mounted) {
+        NotificationService.showValidationError(
+          context,
+          'Location not available. Please try again.',
+        );
+      }
     }
   }
 
@@ -259,10 +324,24 @@ class _HomeScreenState extends State<HomeScreen> {
                           : 0.04);
 
               return Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? Colors.white
+                      : null,
                   image: DecorationImage(
-                    image: AssetImage("assets/images/home background.png"),
-                    fit: BoxFit.cover,
+                    image: AssetImage(
+                        Theme.of(context).brightness == Brightness.light
+                            ? "assets/images/homeLight.png"
+                            : "assets/images/home background.png"),
+                    fit: Theme.of(context).brightness == Brightness.light
+                        ? BoxFit.none
+                        : BoxFit.cover,
+                    alignment: Theme.of(context).brightness == Brightness.light
+                        ? const Alignment(0.9, -0.9)
+                        : Alignment.center,
+                    scale: Theme.of(context).brightness == Brightness.light
+                        ? 1.2
+                        : 1.0,
                   ),
                 ),
                 child: _buildScaffold(
@@ -278,7 +357,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildScaffold(BuildContext context, BoxConstraints constraints,
       Size size, double titleSize, double iconSize, double padding) {
     final platform = Theme.of(context).platform;
-
     if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
       return _buildCupertinoScaffold(
           context, constraints, size, titleSize, iconSize, padding);
@@ -303,7 +381,9 @@ class _HomeScreenState extends State<HomeScreen> {
         leading: IconButton(
           icon: Icon(
             Icons.location_on_outlined,
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? const Color(0xFF0F4797)
+                : Colors.white,
             size: iconSize * 1.2,
           ),
           onPressed: () {},
@@ -311,7 +391,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(
           location,
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? const Color(0xFF0F4797)
+                : Colors.white,
             fontSize: titleSize,
           ),
         ),
@@ -397,7 +479,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             TextStrings.homeGetYouBack,
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? const Color(0xFF0F4797)
+                  : Colors.white,
               fontSize: titleSize * 1.2,
               fontWeight: FontWeight.bold,
               fontFamily: isIOS ? '.SF Pro Text' : null,
@@ -407,7 +491,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: EdgeInsets.all(padding),
             decoration: BoxDecoration(
-              color: AppColors.backGroundColor,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1F3551)
+                  : const Color(0xFF86A5D9),
               borderRadius: BorderRadius.circular(isIOS ? 10 : 15),
             ),
             child: Column(
@@ -476,7 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
         width: double.infinity,
         height: size.height * 0.06,
         child: CupertinoButton(
-          color: AppColors.basicButton,
+          color: const Color(0xFF023A87),
           borderRadius: BorderRadius.circular(8),
           onPressed: () => _navigateToMap(context),
           child: Text(
@@ -496,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
       height: size.height * 0.06,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.basicButton,
+          backgroundColor: const Color(0xFF023A87),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -520,7 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (isIOS) {
       return CupertinoTabBar(
-        backgroundColor: AppColors.backGroundColor,
+        backgroundColor: AppColors.getBackgroundColor(context),
         activeColor: Colors.white,
         inactiveColor: Colors.white.withOpacity(0.6),
         height: iconSize * 3,
@@ -551,10 +637,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return CurvedNavigationBar(
-      backgroundColor: AppColors.cardColor,
-      color: AppColors.backGroundColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : const Color(0xFF01122A),
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1F3551)
+          : AppColors.getBackgroundColor(context),
+      buttonBackgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1F3551)
+          : AppColors.getBackgroundColor(context),
       animationDuration: const Duration(milliseconds: 300),
       height: iconSize * 3 > 75.0 ? 75.0 : iconSize * 3,
+      index: _selectedIndex,
+      letIndexChange: (index) => true,
       items: [
         Icon(Icons.home_outlined, size: iconSize, color: Colors.white),
         Icon(Icons.location_on_outlined, size: iconSize, color: Colors.white),
@@ -633,9 +728,29 @@ class ServiceCard extends StatelessWidget {
 
         return Container(
           decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.stackColorIsSelected
-                : AppColors.stackColor,
+            gradient: Theme.of(context).brightness == Brightness.dark &&
+                    isSelected
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF01122A),
+                      Color(0xFF033E90),
+                    ],
+                  )
+                : Theme.of(context).brightness == Brightness.light && isSelected
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF033E90),
+                          Color(0xFF86A5D9),
+                        ],
+                      )
+                    : null,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? (isSelected ? null : const Color(0xFFB7BCC2))
+                : (isSelected ? null : const Color(0xFFE0E0E0)),
             borderRadius: BorderRadius.circular(isIOS ? 15 : 20),
           ),
           child: Stack(
@@ -649,15 +764,37 @@ class ServiceCard extends StatelessWidget {
                       ? CupertinoSwitch(
                           value: isSelected,
                           onChanged: onToggle,
-                          activeColor: AppColors.backGroundColor,
+                          activeColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF033E90)
+                                  : const Color(0xFF01122A),
+                          trackColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF808080)
+                                  : const Color(0xFF808080),
                         )
                       : Switch(
                           value: isSelected,
                           onChanged: onToggle,
-                          activeColor: Colors.white,
-                          activeTrackColor: AppColors.backGroundColor,
-                          inactiveThumbColor: Colors.white,
-                          inactiveTrackColor: AppColors.switchColor,
+                          activeColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.white,
+                          activeTrackColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF033E90)
+                                  : const Color(0xFF3575CE),
+                          inactiveThumbColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.white,
+                          inactiveTrackColor:
+                              Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF808080)
+                                  : const Color(0xFF808080),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          splashRadius: 0.0,
                         ),
                 ),
               ),
@@ -672,7 +809,7 @@ class ServiceCard extends StatelessWidget {
                         size: iconSize,
                         color: isSelected
                             ? Colors.white
-                            : AppColors.backGroundColor,
+                            : AppColors.getTextStackColor(context),
                       ),
                       SizedBox(height: padding / 2),
                       Text(
@@ -683,7 +820,7 @@ class ServiceCard extends StatelessWidget {
                         style: TextStyle(
                           color: isSelected
                               ? Colors.white
-                              : AppColors.textStackColor,
+                              : AppColors.getTextStackColor(context),
                           fontSize: fontSize,
                           fontWeight: FontWeight.w600,
                           fontFamily: isIOS ? '.SF Pro Text' : null,

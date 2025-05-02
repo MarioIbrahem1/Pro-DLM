@@ -3,7 +3,7 @@ class ProfileData {
   final String email;
   final String? phone;
   final String? address;
-  final String? profileImage;
+  String? profileImage;
   final String? carModel;
   final String? carColor;
   final String? plateNumber;

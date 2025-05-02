@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:road_helperr/providers/signup_provider.dart';
+import 'package:road_helperr/ui/screens/about_screen.dart';
 import 'package:road_helperr/ui/screens/ai_chat.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.dart';
@@ -19,6 +20,7 @@ import 'package:road_helperr/ui/screens/signin_screen.dart';
 import 'package:road_helperr/ui/screens/signupScreen.dart';
 import 'package:road_helperr/ui/screens/emergency_contacts.dart';
 import 'package:road_helperr/models/profile_data.dart';
+import 'package:road_helperr/utils/theme_provider.dart';
 import 'utils/location_service.dart';
 
 void main() {
@@ -26,6 +28,8 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SignupProvider()),
+        ChangeNotifierProvider(
+            create: (_) => ThemeProvider()), // أضف ThemeProvider هنا
       ],
       child: const MyApp(),
     ),
@@ -34,7 +38,6 @@ void main() {
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -76,29 +79,16 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ٌRoad Helper App',
-      theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFF1F3551),
-        cardTheme: CardTheme(
-          color: const Color(0xFF01122A),
-          surfaceTintColor: const Color(0xFF01122A),
-          elevation: 18,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F3551),
-          primary: const Color(0xFF01122A),
-          secondary: const Color(0xFF023A87),
-          onPrimary: const Color(0xFFFFFFFF),
-          onSecondary: const Color(0xFFFFFFFF),
-        ),
-        useMaterial3: true,
-      ),
+      title: 'Road Helper App',
+      theme: ThemeProvider.lightTheme,
+      darkTheme: ThemeProvider.darkTheme,
+      themeMode: themeProvider.themeMode,
       routes: {
+        AboutScreen.routeName: (context) => const AboutScreen(),
         SignupScreen.routeName: (context) => const SignupScreen(),
         SignInScreen.routeName: (context) => const SignInScreen(),
         AiWelcomeScreen.routeName: (context) => const AiWelcomeScreen(),
@@ -112,14 +102,6 @@ class _MyAppState extends State<MyApp> {
         OnBoarding.routeName: (context) => const OnBoarding(),
         OnboardingScreen.routeName: (context) => const OnboardingScreen(),
         OtpExpiredScreen.routeName: (context) => const OtpExpiredScreen(),
-        profile.PersonScreen.routeName: (context) {
-          final args = ModalRoute.of(context)!.settings.arguments
-              as Map<String, dynamic>?;
-          return profile.PersonScreen(
-            name: args?['name'] ?? '',
-            email: args?['email'] ?? '',
-          );
-        },
         EditProfileScreen.routeName: (context) {
           final args = ModalRoute.of(context)!.settings.arguments
               as Map<String, dynamic>;

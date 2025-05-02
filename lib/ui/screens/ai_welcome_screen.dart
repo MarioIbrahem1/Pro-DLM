@@ -12,6 +12,7 @@ class AiWelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -21,17 +22,17 @@ class AiWelcomeScreen extends StatelessWidget {
 
         double titleSize = size.width *
             (isDesktop
-                ? 0.025
+                ? 0.035
                 : isTablet
-                    ? 0.035
-                    : 0.045);
-        double subtitleSize = titleSize * 0.6;
+                    ? 0.045
+                    : 0.055);
+        double subtitleSize = titleSize * 0.7;
         double imageHeight = size.height *
             (isDesktop
-                ? 0.4
+                ? 0.6
                 : isTablet
-                    ? 0.35
-                    : 0.3);
+                    ? 0.5
+                    : 0.4);
         double padding = size.width *
             (isDesktop
                 ? 0.05
@@ -40,10 +41,14 @@ class AiWelcomeScreen extends StatelessWidget {
                     : 0.03);
         double spacing = size.height * 0.02;
 
+        final bgColor = isDark
+            ? AppColors.getBackgroundColor(context)
+            : AppColors.getSurfaceColor(context);
+
         return platform == TargetPlatform.iOS ||
                 platform == TargetPlatform.macOS
             ? CupertinoPageScaffold(
-                backgroundColor: AppColors.cardColor,
+                backgroundColor: bgColor,
                 child: _buildContent(
                   context,
                   size,
@@ -54,10 +59,11 @@ class AiWelcomeScreen extends StatelessWidget {
                   spacing,
                   isDesktop,
                   true,
+                  isDark,
                 ),
               )
             : Scaffold(
-                backgroundColor: AppColors.cardColor,
+                backgroundColor: bgColor,
                 body: _buildContent(
                   context,
                   size,
@@ -68,6 +74,7 @@ class AiWelcomeScreen extends StatelessWidget {
                   spacing,
                   isDesktop,
                   false,
+                  isDark,
                 ),
               );
       },
@@ -84,7 +91,14 @@ class AiWelcomeScreen extends StatelessWidget {
     double spacing,
     bool isDesktop,
     bool isIOS,
+    bool isDark,
   ) {
+    final mainTextColor =
+        isDark ? Colors.white : AppColors.getLabelTextField(context);
+    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+    final imageAsset =
+        isDark ? 'assets/images/bot.png' : 'assets/images/aiWelcomeLight.png';
+
     return SafeArea(
       child: Center(
         child: Container(
@@ -102,7 +116,7 @@ class AiWelcomeScreen extends StatelessWidget {
                   ),
                   padding: EdgeInsets.only(bottom: spacing),
                   child: Image.asset(
-                    'assets/images/bot.png',
+                    imageAsset,
                     height: imageHeight,
                     width: double.infinity,
                     fit: BoxFit.contain,
@@ -113,7 +127,7 @@ class AiWelcomeScreen extends StatelessWidget {
                   TextStrings.text1Ai,
                   maxLines: 2,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: mainTextColor,
                     fontSize: titleSize,
                     fontWeight: FontWeight.w600,
                     fontFamily: isIOS ? '.SF Pro Text' : null,
@@ -126,7 +140,7 @@ class AiWelcomeScreen extends StatelessWidget {
                   child: Text(
                     TextStrings.text2Ai,
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: subTextColor,
                       fontSize: subtitleSize,
                       fontFamily: isIOS ? '.SF Pro Text' : null,
                     ),

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:road_helperr/ui/screens/new_password_screen.dart';
-import 'dart:async';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.dart';
 import 'package:road_helperr/services/notification_service.dart';
+import 'dart:async';
+import 'package:road_helperr/utils/app_colors.dart';
 
 class Otp extends StatefulWidget {
   final String email;
@@ -110,7 +111,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
 
     try {
       if (widget.registrationData != null) {
-        // For registration flow
+        // Registration Flow
         final registerResponse = await ApiService.register(
           widget.registrationData!,
           _otpController.text,
@@ -138,7 +139,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
           );
         }
       } else {
-        // For password reset flow
+        // Password Reset Flow
         final response = await ApiService.verifyOTP(
           widget.email,
           _otpController.text,
@@ -186,16 +187,29 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final textColor = isLight ? Colors.black : Colors.white;
+    final bgMain = isLight
+        ? AppColors.getGradientStart(context)
+        : AppColors.getBackgroundColor(context);
+    final boxColor = isLight ? Colors.white : AppColors.getCardColor(context);
+
     return Scaffold(
       body: Container(
         height: MediaQuery.of(context).size.height,
         width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1F3551), Color(0xFF01122A)],
-          ),
+        decoration: BoxDecoration(
+          gradient: isLight
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.getBackgroundColor(context),
+                    AppColors.getCardColor(context)
+                  ],
+                ),
+          color: bgMain,
         ),
         child: SafeArea(
           child: SingleChildScrollView(
@@ -203,15 +217,17 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/images/chracters.png',
+                  isLight
+                      ? 'assets/images/chracters.png'
+                      : 'assets/images/chracters.png',
                   height: 200,
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'OTP Verification',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: textColor,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -221,13 +237,18 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                   'Enter OTP sent to\n${widget.email}',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: textColor.withOpacity(0.7),
                     fontSize: 16,
                   ),
                 ),
                 const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: PinCodeTextField(
                     appContext: context,
                     length: 6,
@@ -241,9 +262,18 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(10),
                       fieldHeight: 50,
                       fieldWidth: 40,
-                      activeFillColor: Colors.white,
-                      inactiveFillColor: Colors.white.withOpacity(0.8),
-                      selectedFillColor: Colors.white,
+                      activeFillColor: boxColor,
+                      inactiveFillColor: boxColor,
+                      selectedFillColor: boxColor,
+                      activeColor: isLight
+                          ? AppColors.getSignAndRegister(context)
+                          : Colors.white,
+                      inactiveColor: isLight
+                          ? AppColors.getSignAndRegister(context)
+                          : Colors.white,
+                      selectedColor: isLight
+                          ? AppColors.getSignAndRegister(context)
+                          : Colors.white,
                     ),
                     enableActiveFill: true,
                   ),
@@ -255,21 +285,22 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                       : 'Resend in $_timeLeft seconds',
                   style: TextStyle(
                     color: _isResendEnabled
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.7),
+                        ? AppColors.getSignAndRegister(context)
+                        : textColor.withOpacity(0.7),
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 20),
                 if (_isLoading)
-                  const CircularProgressIndicator(color: Colors.white)
+                  const CircularProgressIndicator()
                 else
                   Column(
                     children: [
                       ElevatedButton(
                         onPressed: _verifyOTP,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF023A87),
+                          backgroundColor:
+                              AppColors.getSignAndRegister(context),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 50, vertical: 15),
                           shape: RoundedRectangleBorder(
@@ -287,10 +318,10 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                       if (_isResendEnabled)
                         TextButton(
                           onPressed: _resendOTP,
-                          child: const Text(
+                          child: Text(
                             'Resend Code',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.getSignAndRegister(context),
                               fontSize: 14,
                             ),
                           ),
@@ -305,7 +336,6 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
     );
   }
 }
-
 
 
 

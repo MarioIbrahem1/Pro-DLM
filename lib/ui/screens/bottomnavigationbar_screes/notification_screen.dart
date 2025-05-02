@@ -18,7 +18,7 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  int _selectedIndex = 3;
+  int _selectedIndex = 3; // Removed const since we need to update it
 
   @override
   Widget build(BuildContext context) {
@@ -72,13 +72,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
     bool isDesktop,
   ) {
     return Scaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : const Color(0xFF01122A),
       appBar: AppBar(
-        backgroundColor: AppColors.cardColor,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF01122A),
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back_ios,
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.black
+                : Colors.white,
             size: iconSize,
           ),
           onPressed: () => Navigator.pop(context),
@@ -86,7 +92,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         title: Text(
           TextStrings.notify,
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.black
+                : Colors.white,
             fontSize: titleSize,
           ),
         ),
@@ -96,7 +104,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
             child: Text(
               TextStrings.clear,
               style: TextStyle(
-                color: AppColors.switchColor,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.getSwitchColor(context)
+                    : Colors.white,
                 fontSize: subtitleSize,
               ),
             ),
@@ -121,14 +131,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
     bool isDesktop,
   ) {
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.cardColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : AppColors.getCardColor(context),
       navigationBar: CupertinoNavigationBar(
-        backgroundColor: AppColors.cardColor,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : AppColors.getCardColor(context),
         leading: CupertinoButton(
           padding: EdgeInsets.zero,
           child: Icon(
             CupertinoIcons.back,
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.black
+                : Colors.white,
             size: iconSize,
           ),
           onPressed: () => Navigator.pop(context),
@@ -136,7 +152,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         middle: Text(
           TextStrings.notify,
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).brightness == Brightness.light
+                ? Colors.black
+                : Colors.white,
             fontSize: titleSize,
             fontFamily: '.SF Pro Text',
           ),
@@ -146,7 +164,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
           child: Text(
             TextStrings.clear,
             style: TextStyle(
-              color: AppColors.switchColor,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.getSwitchColor(context)
+                  : Colors.white,
               fontSize: subtitleSize,
               fontFamily: '.SF Pro Text',
             ),
@@ -189,31 +209,39 @@ class _NotificationScreenState extends State<NotificationScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            SizedBox(height: spacing * 8),
             Image.asset(
-              "assets/images/Group 12.png",
+              Theme.of(context).brightness == Brightness.light
+                  ? "assets/images/notification light.png"
+                  : "assets/images/Group 12.png",
               width: size.width * (isDesktop ? 0.3 : 0.5),
               fit: BoxFit.contain,
             ),
-            SizedBox(height: spacing),
+            SizedBox(height: spacing * 3),
             Text(
               TextStrings.noNotify,
               style: TextStyle(
-                color: AppColors.switchColor,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.getSwitchColor(context)
+                    : const Color(0xFFA0A0A0),
                 fontSize: titleSize,
                 fontWeight: FontWeight.w600,
                 fontFamily: isIOS ? '.SF Pro Text' : null,
               ),
             ),
-            SizedBox(height: spacing * 0.5),
+            SizedBox(height: spacing * 1.5),
             Text(
               TextStrings.notifyInbox,
               style: TextStyle(
-                color: AppColors.switchColor,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.getSwitchColor(context)
+                    : const Color(0xFFA0A0A0),
                 fontSize: subtitleSize,
                 fontFamily: isIOS ? '.SF Pro Text' : null,
               ),
               textAlign: TextAlign.center,
             ),
+            const Spacer(),
           ],
         ),
       ),
@@ -231,11 +259,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
         maxWidth: isDesktop ? 1200 : double.infinity,
       ),
       child: CurvedNavigationBar(
-        backgroundColor: AppColors.cardColor,
-        color: AppColors.backGroundColor,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF01122A),
+        color: Theme.of(context).brightness == Brightness.light
+            ? AppColors.getBackgroundColor(context)
+            : const Color(0xFF1F3551),
         animationDuration: const Duration(milliseconds: 300),
         height: navBarHeight,
         index: _selectedIndex,
+        letIndexChange: (index) => true,
         items: [
           Icon(Icons.home_outlined, size: iconSize, color: Colors.white),
           Icon(Icons.location_on_outlined, size: iconSize, color: Colors.white),
@@ -265,7 +298,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         maxWidth: isDesktop ? 1200 : double.infinity,
       ),
       child: CupertinoTabBar(
-        backgroundColor: AppColors.backGroundColor,
+        backgroundColor: AppColors.getBackgroundColor(context),
         activeColor: Colors.white,
         inactiveColor: Colors.white.withOpacity(0.6),
         height: navBarHeight,

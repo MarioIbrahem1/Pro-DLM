@@ -7,36 +7,40 @@ class OrBorder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = AppColors.getBorderField(context);
+
     return Column(
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Divider(
                 height: 2,
                 thickness: 2,
                 indent: 90,
                 endIndent: 13,
-                color: AppColors.borderField,
+                color: borderColor,
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               child: Text(
                 TextStrings.or,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge!
-                    .copyWith(color: Colors.white),
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? const Color(0xFF407BFF)
+                      : Colors.white,
+                  fontSize: Theme.of(context).textTheme.titleLarge?.fontSize,
+                ),
               ),
             ),
-            const Expanded(
+            Expanded(
               child: Divider(
                 height: 2,
                 thickness: 2,
                 indent: 13,
                 endIndent: 90,
-                color: AppColors.borderField,
+                color: borderColor,
               ),
             ),
           ],
@@ -48,16 +52,12 @@ class OrBorder extends StatelessWidget {
                 onPressed: () {},
                 icon:
                     Tab(icon: Image.asset("assets/images/logos_facebook.png"))),
-            const SizedBox(
-              width: 15,
-            ),
+            const SizedBox(width: 15),
             IconButton(
                 onPressed: () {},
                 icon: Tab(
                     icon: Image.asset("assets/images/logos_google-gmail.png"))),
-            const SizedBox(
-              width: 15,
-            ),
+            const SizedBox(width: 15),
             IconButton(
                 onPressed: () {},
                 icon:

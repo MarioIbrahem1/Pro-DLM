@@ -1,691 +1,173 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
 import '../../../utils/app_colors.dart';
 import '../ai_welcome_screen.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
 import 'package:road_helperr/services/notification_service.dart';
-import 'package:road_helperr/models/user_location.dart';
-import 'package:road_helperr/services/api_service.dart';
-import 'package:road_helperr/services/places_service.dart';
 import 'dart:async';
-import 'package:url_launcher/url_launcher.dart';
+
+// Import new components
+import 'map_screen_components/map_controller.dart';
+import 'map_screen_components/map_navigation.dart';
+import 'map_screen_components/place_details_bottom_sheet.dart';
 
 class MapScreen extends StatefulWidget {
   static const String routeName = "map";
-
   const MapScreen({super.key});
-
   @override
-  _MapScreenState createState() => _MapScreenState();
+  MapScreenState createState() => MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class MapScreenState extends State<MapScreen> {
+  // Map controller
   late GoogleMapController mapController;
-  LatLng _currentLocation = const LatLng(30.0444, 31.2357); // Default to Cairo
+
+  // State variables
+  LatLng _currentLocation = const LatLng(30.0444, 31.2357);
   bool _isLoading = true;
-  bool _showError = false;
   int _selectedIndex = 1;
   Set<Marker> _markers = {};
-  Set<Marker> _userMarkers = {};
-  Map<String, bool>? _filters;
+
+  // Timers
   Timer? _locationUpdateTimer;
   Timer? _usersUpdateTimer;
-  String _selectedFilter = 'Hospital';
+
+  // Map controller instance
+  late MapController _mapController;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize map controller with callbacks
+    _mapController = MapController(
+      onLoadingChanged: (isLoading) {
+        if (mounted) {
+          setState(() {
+            _isLoading = isLoading;
+          });
+        }
+      },
+      onMarkersChanged: (markers) {
+        if (mounted) {
+          setState(() {
+            _markers = markers;
+          });
+        }
+      },
+      onLocationChanged: (location) {
+        if (mounted) {
+          setState(() {
+            _currentLocation = location;
+          });
+        }
+      },
+      onError: (title, message) {
+        if (mounted) {
+          NotificationService.showError(
+            context: context,
+            title: title,
+            message: message,
+          );
+        }
+      },
+      onPlaceSelected: (details) {
+        if (mounted) {
+          PlaceDetailsBottomSheet.show(context, details);
+        }
+      },
+    );
+
     _initializeMap();
     _startLocationUpdates();
     _startUsersUpdates();
   }
 
   Future<void> _initializeMap() async {
-    await _getCurrentLocation();
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    await _mapController.initializeMap();
   }
 
   @override
   void dispose() {
     _locationUpdateTimer?.cancel();
     _usersUpdateTimer?.cancel();
-    if (mapController != null) {
-      mapController.dispose();
-    }
+    _mapController.dispose();
     super.dispose();
   }
 
   void _startLocationUpdates() {
-    // Update user's location every 30 seconds
-    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _updateUserLocation();
-    });
+    _mapController.startLocationUpdates();
   }
 
   void _startUsersUpdates() {
-    // Update other users' locations every 10 seconds
-    _usersUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _fetchNearbyUsers();
-    });
+    _mapController.startUsersUpdates();
   }
 
-  Future<void> _updateUserLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition();
-      // Update user's location in the backend
-      await ApiService.updateUserLocation(
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
-    } catch (e) {
-      print('Error updating user location: $e');
-    }
-  }
-
-  Future<void> _fetchNearbyUsers() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition();
-      List<UserLocation> nearbyUsers = await ApiService.getNearbyUsers(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        radius: 5000, // 5km radius
-      );
-
-      Set<Marker> userMarkers = {};
-      for (var user in nearbyUsers) {
-        userMarkers.add(
-          Marker(
-            markerId: MarkerId(user.userId),
-            position: user.position,
-            infoWindow: InfoWindow(
-              title: user.userName,
-              snippet: user.isOnline ? 'Online' : 'Offline',
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              user.isOnline
-                  ? BitmapDescriptor.hueGreen
-                  : BitmapDescriptor.hueRed,
-            ),
-          ),
-        );
-      }
-
-      setState(() {
-        _userMarkers = userMarkers;
-        _markers = {..._markers, ..._userMarkers};
-      });
-    } catch (e) {
-      print('Error fetching nearby users: $e');
-    }
-  }
+  // Removed unused methods
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // استقبال الفلاتر من الشاشة السابقة
-    final receivedFilters =
-        ModalRoute.of(context)?.settings.arguments as Map<String, bool>?;
-    if (receivedFilters != null) {
-      setState(() {
-        _filters = receivedFilters;
-      });
-      print(
-          "Received filters in Map Screen: $_filters"); // للتأكد من استلام الفلاتر
-      _getCurrentLocation(); // تحديث الخريطة بناءً على الفلاتر الجديدة
-    }
-  }
 
-  // Function to get current location
-  Future<void> _getCurrentLocation() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        return;
+    // Obtener los argumentos
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+
+    // Verificar si los argumentos son del nuevo formato (mapa con filtros y coordenadas)
+    if (arguments is Map<String, dynamic>) {
+      // Extraer los filtros
+      final filters = arguments['filters'] as Map<String, bool>?;
+      if (filters != null) {
+        _mapController.setFilters(filters);
       }
 
-      print('Checking location permission...');
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        print('Location permission denied, requesting permission...');
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print('Location permission denied after request');
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _showError = true;
-            });
-          }
-          return;
-        }
-      }
-      print('Location permission status: $permission');
+      // Extraer las coordenadas
+      final latitude = arguments['latitude'] as double?;
+      final longitude = arguments['longitude'] as double?;
 
-      if (permission == LocationPermission.deniedForever) {
-        print('Location permission permanently denied');
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _showError = true;
-          });
-        }
-        return;
-      }
-
-      print('Getting current position...');
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 30), // زيادة المهلة إلى 30 ثانية
-      ).timeout(
-        const Duration(seconds: 35), // زيادة مهلة الانتظار الكلية إلى 35 ثانية
-        onTimeout: () {
-          print('Location request timed out, retrying...');
-          throw TimeoutException('Location request timed out');
-        },
-      );
-
-      print('Position received: ${position.latitude}, ${position.longitude}');
-
-      if (mounted) {
+      if (latitude != null && longitude != null) {
+        // Actualizar la ubicación actual
         setState(() {
-          _currentLocation = LatLng(position.latitude, position.longitude);
-          _isLoading = false;
-          _showError = false;
+          _currentLocation = LatLng(latitude, longitude);
         });
 
-        // Move camera to current location
-        if (mapController != null) {
-          print('Moving camera to current location');
-          await mapController.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(
-                target: _currentLocation,
-                zoom: 15.0,
-              ),
-            ),
-          );
-        }
+        // Actualizar la ubicación en el controlador del mapa
+        _mapController.updateCurrentLocation(_currentLocation);
 
-        // If we have filters, fetch nearby places
-        if (_filters != null) {
-          await _fetchNearbyPlaces(position.latitude, position.longitude);
-        }
-      }
-    } catch (e) {
-      print('Error getting current location: $e');
-      if (e is TimeoutException) {
-        // Retry once on timeout
-        try {
-          print('Retrying location request...');
-          Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy:
-                LocationAccuracy.medium, // Lower accuracy for retry
-            timeLimit: const Duration(seconds: 10),
-          );
-
-          if (mounted) {
-            setState(() {
-              _currentLocation = LatLng(position.latitude, position.longitude);
-              _isLoading = false;
-              _showError = true;
-            });
-
-            if (mapController != null) {
-              await mapController.animateCamera(
-                CameraUpdate.newCameraPosition(
-                  CameraPosition(
-                    target: _currentLocation,
-                    zoom: 15.0,
-                  ),
-                ),
-              );
-            }
-          }
-        } catch (retryError) {
-          print('Retry failed: $retryError');
-          if (mounted) {
-            NotificationService.showError(
-              context: context,
-              title: 'Location Error',
-              message:
-                  'Could not get your current location. Please check your GPS signal and try again.',
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          NotificationService.showError(
-            context: context,
-            title: 'Location Error',
-            message: 'Could not get your current location. Please try again.',
-          );
-        }
-      }
-    }
-  }
-
-  // Function to fetch nearby places using Google Places API
-  Future<void> _fetchNearbyPlaces(double latitude, double longitude) async {
-    try {
-      print('🔍 Starting to fetch nearby places');
-
-      if (_filters == null || _filters!.isEmpty) {
-        print("❌ No filters available!");
-        return;
-      }
-
-      // تحويل الفلاتر إلى أنواع Google Places
-      List<String> selectedTypes = [];
-      _filters!.forEach((key, value) {
-        if (value) {
-          // إذا كان الفلتر مفعل
-          String placeType = '';
-          switch (key) {
-            case 'Hospital':
-              placeType = 'hospital';
-              break;
-            case 'Police':
-              placeType = 'police';
-              break;
-            case 'Maintenance center':
-              placeType = 'car_repair';
-              break;
-            case 'Winch':
-              placeType = 'car_dealer';
-              break;
-            case 'Gas Station':
-              placeType = 'gas_station';
-              break;
-            case 'Fire Station':
-              placeType = 'fire_station';
-              break;
-          }
-          if (placeType.isNotEmpty) {
-            selectedTypes.add(placeType);
-          }
-        }
-      });
-
-      print(
-          'Selected place types for API: $selectedTypes'); // للتأكد من الأنواع المرسلة للـ API
-
-      if (selectedTypes.isEmpty) {
-        print("❌ No valid place types found!");
-        return;
-      }
-
-      // جلب الأماكن القريبة لكل نوع على حدة للحصول على نتائج أفضل
-      Set<Marker> allMarkers = {};
-
-      for (String type in selectedTypes) {
-        final places = await PlacesService.searchNearbyPlaces(
-          latitude: latitude,
-          longitude: longitude,
-          radius: 5000,
-          types: [type],
-        );
-
-        print('Found ${places.length} places for type: $type');
-
-        for (var place in places) {
+        // Mover la cámara a la ubicación actual cuando esté disponible
+        // Esto se ejecutará después de que el mapa se haya creado
+        Future.delayed(Duration.zero, () {
           try {
-            final lat =
-                (place['geometry']['location']['lat'] as num).toDouble();
-            final lng =
-                (place['geometry']['location']['lng'] as num).toDouble();
-            final name = place['name'] as String? ?? 'Unknown Place';
-            final placeId =
-                place['place_id'] as String? ?? DateTime.now().toString();
-
-            // تحديد لون الماركر بناءً على نوع المكان
-            double markerHue;
-            switch (type) {
-              case 'hospital':
-                markerHue = BitmapDescriptor.hueRed;
-                break;
-              case 'police':
-                markerHue = BitmapDescriptor.hueBlue;
-                break;
-              case 'car_repair':
-                markerHue = BitmapDescriptor.hueOrange;
-                break;
-              case 'car_dealer':
-                markerHue = BitmapDescriptor.hueYellow;
-                break;
-              case 'gas_station':
-                markerHue = BitmapDescriptor.hueGreen;
-                break;
-              case 'fire_station':
-                markerHue = BitmapDescriptor.hueViolet;
-                break;
-              default:
-                markerHue = BitmapDescriptor.hueRed;
-            }
-
-            allMarkers.add(
-              Marker(
-                markerId: MarkerId(placeId),
-                position: LatLng(lat, lng),
-                icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
-                onTap: () async {
-                  try {
-                    final details =
-                        await PlacesService.getPlaceDetails(placeId);
-                    if (details != null && mounted) {
-                      _showPlaceDetails(details);
-                    }
-                  } catch (e) {
-                    print('Error getting place details: $e');
-                    if (mounted) {
-                      NotificationService.showError(
-                        context: context,
-                        title: 'Error',
-                        message:
-                            'Could not load place details. Please try again.',
-                      );
-                    }
-                  }
-                },
+            mapController.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(target: _currentLocation, zoom: 15.0),
               ),
             );
           } catch (e) {
-            print('Error adding marker: $e');
-            continue;
+            debugPrint('Error al mover la cámara: $e');
           }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _markers = allMarkers;
         });
       }
-    } catch (e) {
-      print('❌ Error fetching nearby places: $e');
-      if (mounted) {
-        NotificationService.showError(
-          context: context,
-          title: 'Error',
-          message: 'Failed to fetch nearby places. Please try again.',
-        );
-      }
+    }
+    // Compatibilidad con el formato antiguo (solo filtros)
+    else if (arguments is Map<String, bool>) {
+      _mapController.setFilters(arguments);
     }
   }
 
-  void _showPlaceDetails(Map<String, dynamic> details) {
-    try {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          height: MediaQuery.of(context).size.height * 0.4,
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(color: AppColors.borderField.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.borderField.withOpacity(0.1),
-                blurRadius: 10,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.borderField.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title and Open Status
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              details['name'] as String? ?? 'Unknown Place',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.labelTextField,
-                              ),
-                            ),
-                          ),
-                          if (details['opening_hours'] != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: (details['opening_hours']['open_now']
-                                            as bool?) ??
-                                        false
-                                    ? AppColors.basicButton.withOpacity(0.2)
-                                    : Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: (details['opening_hours']['open_now']
-                                              as bool?) ??
-                                          false
-                                      ? AppColors.basicButton
-                                      : Colors.red,
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                (details['opening_hours']['open_now']
-                                            as bool?) ??
-                                        false
-                                    ? 'Open'
-                                    : 'Closed',
-                                style: TextStyle(
-                                  color: (details['opening_hours']['open_now']
-                                              as bool?) ??
-                                          false
-                                      ? AppColors.labelTextField
-                                      : Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      // Rating
-                      if (details['rating'] != null)
-                        Row(
-                          children: [
-                            ...List.generate(5, (index) {
-                              double rating =
-                                  (details['rating'] as num).toDouble();
-                              return Icon(
-                                index < rating.floor()
-                                    ? Icons.star
-                                    : index < rating
-                                        ? Icons.star_half
-                                        : Icons.star_border,
-                                color: AppColors.signAndRegister,
-                                size: 20,
-                              );
-                            }),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${(details['rating'] as num).toDouble()}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color:
-                                    AppColors.labelTextField.withOpacity(0.8),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      const SizedBox(height: 16),
-                      // Address
-                      Row(
-                        children: [
-                          Icon(Icons.location_on,
-                              color: AppColors.labelTextField.withOpacity(0.8)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              details['formatted_address'] as String? ??
-                                  'No address available',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color:
-                                    AppColors.labelTextField.withOpacity(0.8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      // Action Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildActionButton(
-                            icon: Icons.directions,
-                            label: 'Directions',
-                            onTap: () {
-                              try {
-                                final lat = (details['geometry']['location']
-                                        ['lat'] as num)
-                                    .toDouble();
-                                final lng = (details['geometry']['location']
-                                        ['lng'] as num)
-                                    .toDouble();
-                                final url =
-                                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng';
-                                launch(url);
-                              } catch (e) {
-                                print('Error opening directions: $e');
-                              }
-                            },
-                          ),
-                          if (details['formatted_phone_number'] != null)
-                            _buildActionButton(
-                              icon: Icons.phone,
-                              label: 'Call',
-                              onTap: () {
-                                try {
-                                  launch(
-                                      'tel:${details['formatted_phone_number']}');
-                                } catch (e) {
-                                  print('Error making call: $e');
-                                }
-                              },
-                            ),
-                          _buildActionButton(
-                            icon: Icons.share,
-                            label: 'Share',
-                            onTap: () {
-                              // Implement share functionality
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } catch (e) {
-      print('Error showing place details: $e');
-      NotificationService.showError(
-        context: context,
-        title: 'Error',
-        message: 'Could not display place details. Please try again.',
-      );
-    }
-  }
+  // Methods now handled by the MapController class
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.basicButton.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.basicButton.withOpacity(0.3),
-            width: 0.5,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: AppColors.labelTextField, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: AppColors.labelTextField,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _onMapCreated(GoogleMapController controller) async {
-    mapController = controller;
-    // تطبيق النمط المخصص على الخريطة
-    String mapStyle = await DefaultAssetBundle.of(context)
-        .loadString('assets/map_style.json');
-    mapController.setMapStyle(mapStyle);
-  }
-
+  // ----------   BUILD UI  ----------
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = MediaQuery.of(context).size;
         final isTablet = constraints.maxWidth > 600;
         final isDesktop = constraints.maxWidth > 1200;
-
         double titleSize = size.width *
             (isDesktop
                 ? 0.02
@@ -742,157 +224,16 @@ class _MapScreenState extends State<MapScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         toolbarHeight: navBarHeight,
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF01122A),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : AppColors.getBackgroundColor(context),
       body: _isLoading
-          ? Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                image: DecorationImage(
-                  image: AssetImage('assets/map-bg.png'),
-                  opacity: 0.1,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.2),
-                            spreadRadius: 5,
-                            blurRadius: 7,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.basicButton,
-                              ),
-                              strokeWidth: 3,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'جاري تحديد موقعك...',
-                            style: TextStyle(
-                              color: AppColors.labelTextField,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'يرجى الانتظار قليلاً',
-                            style: TextStyle(
-                              color: AppColors.labelTextField.withOpacity(0.7),
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : _showError
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    image: DecorationImage(
-                      image: AssetImage('assets/map-bg.png'),
-                      opacity: 0.1,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                spreadRadius: 5,
-                                blurRadius: 7,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.location_off,
-                                color: Colors.red,
-                                size: 50,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Location Error',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Could not get your current location.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              ElevatedButton(
-                                onPressed: _getCurrentLocation,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.basicButton,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 30,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Try Again',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _buildBody(context, size, constraints, titleSize, isDesktop),
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(context, size, constraints, titleSize, isDesktop),
       bottomNavigationBar: _buildMaterialNavBar(
         context,
         iconSize,
@@ -928,20 +269,21 @@ class _MapScreenState extends State<MapScreen> {
           ),
           onPressed: () => Navigator.pop(context),
         ),
+        backgroundColor: Theme.of(context).brightness == Brightness.light
+            ? Colors.white
+            : AppColors.getBackgroundColor(context),
       ),
-      backgroundColor: Colors.yellow,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : AppColors.getBackgroundColor(context),
       child: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CupertinoActivityIndicator()) // Show loading
-                  : _showError
-                      ? const Center(
-                          child: CupertinoActivityIndicator()) // Show loading
-                      : _buildBody(
-                          context, size, constraints, titleSize, isDesktop),
+                  ? const Center(child: CupertinoActivityIndicator())
+                  : _buildBody(
+                      context, size, constraints, titleSize, isDesktop),
             ),
             _buildCupertinoNavBar(
               context,
@@ -962,97 +304,27 @@ class _MapScreenState extends State<MapScreen> {
     double titleSize,
     bool isDesktop,
   ) {
-    return Stack(
-      children: [
-        GoogleMap(
-          onMapCreated: _onMapCreated,
-          initialCameraPosition: CameraPosition(
-            target: _currentLocation,
-            zoom: 15.0,
-          ),
-          markers: _markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: true,
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: true,
-          compassEnabled: true,
-          onCameraMove: (CameraPosition position) {
-            setState(() {
-              _currentLocation = position.target;
-            });
-          },
-        ),
-        if (_showError)
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 40),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    spreadRadius: 5,
-                    blurRadius: 7,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.location_off,
-                    color: Colors.red,
-                    size: 50,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Location Error',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Could not get your current location.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _getCurrentLocation,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.basicButton,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 30,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                    ),
-                    child: Text(
-                      'Try Again',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+    return GoogleMap(
+      onMapCreated: _onMapCreated,
+      initialCameraPosition: CameraPosition(
+        target: _currentLocation,
+        zoom: 15.0,
+      ),
+      markers: _markers,
+      myLocationEnabled: true,
+      myLocationButtonEnabled: true,
+      mapToolbarEnabled: false,
+      zoomControlsEnabled: true,
+      compassEnabled: true,
+      onCameraMove: (CameraPosition position) {
+        _mapController.onCameraMove(position);
+      },
     );
+  }
+
+  void _onMapCreated(GoogleMapController controller) async {
+    mapController = controller;
+    _mapController.setMapController(controller);
   }
 
   Widget _buildMaterialNavBar(
@@ -1061,26 +333,13 @@ class _MapScreenState extends State<MapScreen> {
     double navBarHeight,
     bool isDesktop,
   ) {
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: isDesktop ? 1200 : double.infinity,
-      ),
-      child: CurvedNavigationBar(
-        backgroundColor: AppColors.cardColor,
-        color: AppColors.backGroundColor,
-        animationDuration: const Duration(milliseconds: 300),
-        height: navBarHeight,
-        index: _selectedIndex, // Use _selectedIndex from State
-        items: [
-          Icon(Icons.home_outlined, size: iconSize, color: Colors.white),
-          Icon(Icons.location_on_outlined, size: iconSize, color: Colors.white),
-          Icon(Icons.textsms_outlined, size: iconSize, color: Colors.white),
-          Icon(Icons.notifications_outlined,
-              size: iconSize, color: Colors.white),
-          Icon(Icons.person_2_outlined, size: iconSize, color: Colors.white),
-        ],
-        onTap: (index) => _handleNavigation(context, index),
-      ),
+    return MapNavigation.buildMaterialNavBar(
+      context: context,
+      iconSize: iconSize,
+      navBarHeight: navBarHeight,
+      isDesktop: isDesktop,
+      selectedIndex: _selectedIndex,
+      onTap: (index) => _handleNavigation(context, index),
     );
   }
 
@@ -1090,48 +349,20 @@ class _MapScreenState extends State<MapScreen> {
     double navBarHeight,
     bool isDesktop,
   ) {
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: isDesktop ? 1200 : double.infinity,
-      ),
-      child: CupertinoTabBar(
-        backgroundColor: AppColors.backGroundColor,
-        activeColor: Colors.white,
-        inactiveColor: Colors.white.withOpacity(0.6),
-        height: navBarHeight,
-        currentIndex: _selectedIndex, // Use _selectedIndex from State
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.home, size: iconSize),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.location, size: iconSize),
-            label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.chat_bubble, size: iconSize),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.bell, size: iconSize),
-            label: 'Notifications',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(CupertinoIcons.person, size: iconSize),
-            label: 'Profile',
-          ),
-        ],
-        onTap: (index) => _handleNavigation(context, index),
-      ),
+    return MapNavigation.buildCupertinoNavBar(
+      context: context,
+      iconSize: iconSize,
+      navBarHeight: navBarHeight,
+      isDesktop: isDesktop,
+      selectedIndex: _selectedIndex,
+      onTap: (index) => _handleNavigation(context, index),
     );
   }
 
   void _handleNavigation(BuildContext context, int index) {
     setState(() {
-      _selectedIndex = index; // Update the selected index
+      _selectedIndex = index;
     });
-
     final routes = [
       HomeScreen.routeName,
       MapScreen.routeName,
@@ -1139,7 +370,6 @@ class _MapScreenState extends State<MapScreen> {
       NotificationScreen.routeName,
       ProfileScreen.routeName,
     ];
-
     if (index < routes.length) {
       Navigator.pushNamed(context, routes[index]);
     }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:road_helperr/utils/app_colors.dart';
+import 'package:road_helperr/utils/text_strings.dart';
 import 'signin_screen.dart';
 import 'signupScreen.dart';
 
@@ -61,93 +63,112 @@ class _OnBoardingState extends State<OnBoarding> {
         final responsive = _ResponsiveSize(size, isDesktop, isTablet);
 
         return Scaffold(
-          body: OrientationBuilder(
-            builder: (context, orientation) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: Image.asset(
-                      "assets/images/background_photo.png",
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(color: Colors.grey[300]);
-                      },
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: Theme.of(context).brightness == Brightness.light
+                  ? AppColors.onBoardingGradient
+                  : null,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1F3551)
+                  : null,
+            ),
+            child: OrientationBuilder(
+              builder: (context, orientation) {
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        "assets/images/background_photo.png",
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(color: Colors.grey[300]);
+                        },
+                      ),
                     ),
-                  ),
-                  Scaffold(
-                    backgroundColor: Colors.transparent,
-                    body: SafeArea(
-                      child: SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: constraints.maxHeight,
-                          ),
-                          child: Center(
-                            child: Container(
-                              constraints: BoxConstraints(
-                                maxWidth: responsive.maxContentWidth,
-                              ),
-                              padding: responsive.contentPadding,
-                              child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  SizedBox(height: responsive.spacing),
-                                  _AdaptiveImage(
-                                    imagePath: "assets/images/car_rental.png",
-                                    width: responsive.imageWidth,
-                                    height: responsive.imageHeight,
-                                  ),
-                                  _AdaptiveText(
-                                    text:
-                                        "If you've got the time,\nwe've got the shine",
-                                    style: TextStyle(
-                                      fontSize: responsive.titleSize,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
+                    Scaffold(
+                      backgroundColor:
+                          Theme.of(context).scaffoldBackgroundColor,
+                      body: SafeArea(
+                        child: SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
+                            ),
+                            child: Center(
+                              child: Container(
+                                constraints: BoxConstraints(
+                                  maxWidth: responsive.maxContentWidth,
+                                ),
+                                padding: responsive.contentPadding,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    SizedBox(height: responsive.spacing),
+                                    _AdaptiveImage(
+                                      imagePath: Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? "assets/images/OnBoardingLight.png"
+                                          : "assets/images/carDark.png",
+                                      width: responsive.imageWidth,
+                                      height: responsive.imageHeight,
                                     ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  _AdaptiveText(
-                                    text:
-                                        "JUST THE PROTECTION\nYOU and your CAR NEED\nSPEAK TO US FOR BEST SERVICES",
-                                    style: TextStyle(
-                                      fontSize: responsive.subtitleSize,
-                                      color: const Color(0xFFD6D1D1),
-                                      fontWeight: FontWeight.w400,
+                                    SizedBox(height: responsive.spacing),
+                                    _AdaptiveText(
+                                      text:
+                                          "If you've got the time,\nwe've got the shine",
+                                      style: TextStyle(
+                                        fontSize: responsive.titleSize,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  SizedBox(height: responsive.spacing),
-                                  _AdaptiveButtonRow(
-                                    buttonWidth: responsive.buttonWidth,
-                                    buttonHeight: responsive.buttonHeight,
-                                    spacing: responsive.buttonSpacing,
-                                    onSignUpPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              const SignupScreen()),
+                                    SizedBox(height: responsive.spacing),
+                                    _AdaptiveText(
+                                      text:
+                                          "JUST THE PROTECTION\nYOU and your CAR NEED\nSPEAK TO US FOR BEST SERVICES",
+                                      style: TextStyle(
+                                        fontSize: responsive.subtitleSize,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    onSignInPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              const SignInScreen()),
+                                    SizedBox(height: responsive.spacing * 2),
+                                    _AdaptiveButtonRow(
+                                      buttonWidth: responsive.buttonWidth,
+                                      buttonHeight: responsive.buttonHeight,
+                                      spacing: responsive.spacing,
+                                      onSignUpPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const SignupScreen()),
+                                      ),
+                                      onSignInPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const SignInScreen()),
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: responsive.spacing),
-                                ],
+                                    SizedBox(height: responsive.bottomSpacing),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
@@ -181,26 +202,27 @@ class _ResponsiveSize {
   double get buttonWidth =>
       size.width *
       (isDesktop
-          ? 0.12
+          ? 0.25
           : isTablet
-              ? 0.2
-              : 0.4);
+              ? 0.35
+              : 0.48);
   double get buttonHeight =>
       size.height *
       (isDesktop
-          ? 0.06
+          ? 0.08
           : isTablet
-              ? 0.07
-              : 0.08);
+              ? 0.09
+              : 0.075);
   double get imageWidth =>
       size.width *
       (isDesktop
-          ? 0.3
+          ? 0.4
           : isTablet
-              ? 0.4
-              : 0.8);
-  double get imageHeight => imageWidth * 0.53;
-  double get spacing => size.height * 0.02;
+              ? 0.5
+              : 0.9);
+  double get imageHeight => imageWidth * 0.7;
+  double get spacing => size.height * 0.04;
+  double get bottomSpacing => size.height * 0.08;
   double get buttonSpacing => size.width * 0.03;
 }
 
@@ -226,8 +248,17 @@ class _AdaptiveImage extends StatelessWidget {
         return Container(
           width: width,
           height: height,
-          color: Colors.grey[300],
-          child: const Icon(Icons.error, color: Colors.red),
+          color: Theme.of(context).colorScheme.surface,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.broken_image,
+                  color: Theme.of(context).colorScheme.error, size: 48),
+              const SizedBox(height: 8),
+              Text('Image not found',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+          ),
         );
       },
     );
@@ -275,55 +306,63 @@ class _AdaptiveButtonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: spacing,
-      runSpacing: spacing,
-      alignment: WrapAlignment.center,
-      children: [
-        _buildButton(
-          context,
-          "Sign up",
-          Colors.white,
-          const Color(0xFF2C2C2C),
-          onSignUpPressed,
-        ),
-        _buildButton(
-          context,
-          "Sign in",
-          const Color(0xFF02285E),
-          Colors.white,
-          onSignInPressed,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildButton(
-    BuildContext context,
-    String text,
-    Color backgroundColor,
-    Color textColor,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: buttonWidth,
-        height: buttonHeight,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: buttonWidth * 0.12,
-              fontWeight: FontWeight.w600,
-              color: textColor,
+    return Container(
+      width: buttonWidth * 2.2,
+      height: buttonHeight * 1.3,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        color: Colors.transparent,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(vertical: buttonHeight * 0.2),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.horizontal(
+                    left: Radius.circular(15),
+                  ),
+                ),
+              ),
+              onPressed: onSignUpPressed,
+              child: Text(
+                TextStrings.textButton,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: buttonHeight * 0.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
-        ),
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(vertical: buttonHeight * 0.2),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.horizontal(
+                    right: Radius.circular(15),
+                  ),
+                ),
+              ),
+              onPressed: onSignInPressed,
+              child: Text(
+                TextStrings.textButton2,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontSize: buttonHeight * 0.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

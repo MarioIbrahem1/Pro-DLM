@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:road_helperr/utils/app_colors.dart';
 
 class ProfileRibon extends StatelessWidget {
   final String leadingIcon;
   final String title;
-  final Function()? onTap;
+  final VoidCallback onTap;
 
   const ProfileRibon({
     super.key,
@@ -15,13 +14,6 @@ class ProfileRibon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLight = Theme.of(context).brightness == Brightness.light;
-    final Color textColor = isLight ? Colors.black : Colors.white;
-    final Color iconColor =
-        isLight ? AppColors.getTextStackColor(context) : Colors.white;
-    final Color arrowColor =
-        isLight ? AppColors.getTextStackColor(context) : Colors.white;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = MediaQuery.of(context).size;
@@ -32,41 +24,45 @@ class ProfileRibon extends StatelessWidget {
             (isDesktop
                 ? 0.015
                 : isTablet
-                    ? 0.02
-                    : 0.03);
+                ? 0.02
+                : 0.03);
         double fontSize = size.width *
             (isDesktop
                 ? 0.012
                 : isTablet
-                    ? 0.016
-                    : 0.045);
+                ? 0.016
+                : 0.045);
         double padding = size.width *
             (isDesktop
                 ? 0.01
                 : isTablet
-                    ? 0.02
-                    : 0.04);
+                ? 0.02
+                : 0.04);
         double spacing = size.width *
             (isDesktop
                 ? 0.01
                 : isTablet
-                    ? 0.015
-                    : 0.02);
+                ? 0.015
+                : 0.02);
 
         return Container(
           constraints: BoxConstraints(
             maxWidth: isDesktop
                 ? 800
                 : isTablet
-                    ? 600
-                    : double.infinity,
+                ? 600
+                : double.infinity,
           ),
           padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).cardTheme.color,
+          ),
           child: Row(
             children: [
               ImageIcon(
                 AssetImage(leadingIcon),
-                color: iconColor,
+                color: Theme.of(context).colorScheme.onPrimary,
                 size: iconSize * 1.2,
               ),
               SizedBox(width: spacing),
@@ -75,7 +71,7 @@ class ProfileRibon extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: fontSize,
-                    color: textColor,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     fontWeight: FontWeight.w400,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -89,7 +85,7 @@ class ProfileRibon extends StatelessWidget {
                   padding: EdgeInsets.all(padding * 0.5),
                   child: Icon(
                     Icons.arrow_forward_ios_sharp,
-                    color: arrowColor,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: iconSize,
                   ),
                 ),

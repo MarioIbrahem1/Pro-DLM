@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'signin_screen.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/utils/app_colors.dart';
 
 class NewPasswordScreen extends StatefulWidget {
   final String email;
@@ -21,7 +22,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
 
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -30,6 +30,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
   bool hasSpecialChar = false;
   bool hasNumber = false;
   bool passwordsMatch = false;
+  bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -49,6 +50,9 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
 
   void _validatePassword(String password) {
     setState(() {
+      hasUpperCase = password.contains(RegExp(r'[A-Z]'));
+      hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+      hasNumber = password.contains(RegExp(r'[0-9]'));
       passwordsMatch =
           password == _confirmPasswordController.text && password.isNotEmpty;
     });
@@ -62,9 +66,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
   }
 
   bool get isPasswordValid =>
-      _passwordController.text.isNotEmpty &&
-      _confirmPasswordController.text.isNotEmpty &&
-      passwordsMatch;
+      hasUpperCase && hasSpecialChar && hasNumber && passwordsMatch;
 
   Future<void> _resetPassword() async {
     if (_passwordController.text.isEmpty ||
@@ -128,8 +130,10 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
     final size = MediaQuery.of(context).size;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color.fromRGBO(1, 18, 42, 1),
+      backgroundColor: AppColors.getBackgroundColor(context),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: isIOS
@@ -139,9 +143,9 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                 leading: CupertinoButton(
                   padding: EdgeInsets.zero,
                   onPressed: () => Navigator.pop(context),
-                  child: const Icon(
+                  child: Icon(
                     CupertinoIcons.back,
-                    color: Colors.white,
+                    color: AppColors.getSignAndRegister(context),
                   ),
                 ),
               )
@@ -149,9 +153,9 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 leading: IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back,
-                    color: Colors.white,
+                    color: AppColors.getSignAndRegister(context),
                   ),
                   onPressed: () => Navigator.pop(context),
                 ),
@@ -177,16 +181,16 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                     Icon(
                       isIOS ? CupertinoIcons.lock : Icons.lock_outline,
                       size: iconSize,
-                      color: Colors.blue,
+                      color: AppColors.getSignAndRegister(context),
                     ),
                     SizedBox(height: size.height * 0.04),
-                    _buildPasswordField(maxWidth, isIOS),
+                    _buildPasswordField(maxWidth, isIOS, context),
                     SizedBox(height: size.height * 0.02),
-                    _buildConfirmPasswordField(maxWidth, isIOS),
+                    _buildConfirmPasswordField(maxWidth, isIOS, context),
                     SizedBox(height: size.height * 0.02),
-                    _buildPasswordRequirements(maxWidth, isIOS),
+                    _buildPasswordRequirements(maxWidth, isIOS, context),
                     SizedBox(height: size.height * 0.04),
-                    _buildResetButton(maxWidth, isIOS),
+                    _buildResetButton(maxWidth, isIOS, context),
                   ],
                 ),
               ),
@@ -197,21 +201,29 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     );
   }
 
-  Widget _buildPasswordField(double maxWidth, bool isIOS) {
+  Widget _buildPasswordField(
+      double maxWidth, bool isIOS, BuildContext context) {
+    final hasError = _passwordController.text.isNotEmpty && !isPasswordValid;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.5)),
-        color: Colors.white.withOpacity(0.05),
+        border: Border.all(
+          color: hasError ? Colors.red : AppColors.getSignAndRegister(context),
+        ),
+        color: AppColors.getSurfaceColor(context),
       ),
       child: isIOS
           ? CupertinoTextField(
               controller: _passwordController,
               onChanged: _validatePassword,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: AppColors.getLabelTextField(context),
+              ),
               obscureText: _obscurePassword,
               placeholder: 'New Password',
-              placeholderStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+              placeholderStyle: TextStyle(
+                color: AppColors.getLabelTextField(context).withOpacity(0.5),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.transparent,
@@ -223,7 +235,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                   _obscurePassword
                       ? CupertinoIcons.eye
                       : CupertinoIcons.eye_slash,
-                  color: Colors.white.withOpacity(0.7),
+                  color: AppColors.getSignAndRegister(context),
                   size: 20,
                 ),
                 onPressed: () =>
@@ -233,18 +245,22 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
           : TextField(
               controller: _passwordController,
               onChanged: _validatePassword,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: AppColors.getLabelTextField(context),
+              ),
               obscureText: _obscurePassword,
               decoration: InputDecoration(
                 hintText: 'New Password',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                hintStyle: TextStyle(
+                  color: AppColors.getLabelTextField(context).withOpacity(0.5),
+                ),
                 border: InputBorder.none,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.white.withOpacity(0.7),
+                    color: AppColors.getSignAndRegister(context),
                   ),
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
@@ -254,21 +270,30 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     );
   }
 
-  Widget _buildConfirmPasswordField(double maxWidth, bool isIOS) {
+  Widget _buildConfirmPasswordField(
+      double maxWidth, bool isIOS, BuildContext context) {
+    final hasError =
+        _confirmPasswordController.text.isNotEmpty && !passwordsMatch;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.5)),
-        color: Colors.white.withOpacity(0.05),
+        border: Border.all(
+          color: hasError ? Colors.red : AppColors.getSignAndRegister(context),
+        ),
+        color: AppColors.getSurfaceColor(context),
       ),
       child: isIOS
           ? CupertinoTextField(
               controller: _confirmPasswordController,
               onChanged: _validateConfirmPassword,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: AppColors.getLabelTextField(context),
+              ),
               obscureText: _obscureConfirmPassword,
               placeholder: 'Rewrite New Password',
-              placeholderStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+              placeholderStyle: TextStyle(
+                color: AppColors.getLabelTextField(context).withOpacity(0.5),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.transparent,
@@ -280,7 +305,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                   _obscureConfirmPassword
                       ? CupertinoIcons.eye
                       : CupertinoIcons.eye_slash,
-                  color: Colors.white.withOpacity(0.7),
+                  color: AppColors.getSignAndRegister(context),
                   size: 20,
                 ),
                 onPressed: () => setState(
@@ -290,11 +315,15 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
           : TextField(
               controller: _confirmPasswordController,
               onChanged: _validateConfirmPassword,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: AppColors.getLabelTextField(context),
+              ),
               obscureText: _obscureConfirmPassword,
               decoration: InputDecoration(
                 hintText: 'Rewrite New Password',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                hintStyle: TextStyle(
+                  color: AppColors.getLabelTextField(context).withOpacity(0.5),
+                ),
                 border: InputBorder.none,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -303,7 +332,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                     _obscureConfirmPassword
                         ? Icons.visibility
                         : Icons.visibility_off,
-                    color: Colors.white.withOpacity(0.7),
+                    color: AppColors.getSignAndRegister(context),
                   ),
                   onPressed: () => setState(
                       () => _obscureConfirmPassword = !_obscureConfirmPassword),
@@ -313,13 +342,16 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     );
   }
 
-  Widget _buildPasswordRequirements(double maxWidth, bool isIOS) {
+  Widget _buildPasswordRequirements(
+      double maxWidth, bool isIOS, BuildContext context) {
+    final mainColor = AppColors.getSignAndRegister(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withOpacity(0.05),
+        color: AppColors.getSurfaceColor(context),
+        border: Border.all(color: mainColor.withOpacity(0.7)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,31 +360,34 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
             children: [
               Icon(
                 isIOS ? CupertinoIcons.info : Icons.info_outline,
-                color: Colors.white.withOpacity(0.7),
+                color: mainColor,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 'Password must have:',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: mainColor,
                   fontSize: 14,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildRequirement('One capital letter or more', hasUpperCase, isIOS),
           _buildRequirement(
-              'One special character or more', hasSpecialChar, isIOS),
-          _buildRequirement('One number or more', hasNumber, isIOS),
-          _buildRequirement('Passwords match', passwordsMatch, isIOS),
+              'One capital letter or more', hasUpperCase, isIOS, context),
+          _buildRequirement(
+              'One special character or more', hasSpecialChar, isIOS, context),
+          _buildRequirement('One number or more', hasNumber, isIOS, context),
+          _buildRequirement('Passwords match', passwordsMatch, isIOS, context),
         ],
       ),
     );
   }
 
-  Widget _buildRequirement(String text, bool isMet, bool isIOS) {
+  Widget _buildRequirement(
+      String text, bool isMet, bool isIOS, BuildContext context) {
+    final mainColor = AppColors.getSignAndRegister(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -363,14 +398,14 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                     ? CupertinoIcons.checkmark_circle_fill
                     : CupertinoIcons.circle)
                 : (isMet ? Icons.check_circle : Icons.circle_outlined),
-            color: isMet ? Colors.green : Colors.white.withOpacity(0.3),
+            color: isMet ? Colors.green : mainColor.withOpacity(0.4),
             size: 16,
           ),
           const SizedBox(width: 8),
           Text(
             text,
             style: TextStyle(
-              color: isMet ? Colors.green : Colors.white.withOpacity(0.5),
+              color: isMet ? Colors.green : mainColor.withOpacity(0.7),
               fontSize: 13,
             ),
           ),
@@ -379,14 +414,16 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     );
   }
 
-  Widget _buildResetButton(double maxWidth, bool isIOS) {
-    return Container(
+  Widget _buildResetButton(double maxWidth, bool isIOS, BuildContext context) {
+    return SizedBox(
       width: double.infinity,
       height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 20),
       child: isIOS
           ? CupertinoButton(
-              color: isPasswordValid ? Colors.blue : Colors.grey,
+              padding: EdgeInsets.zero,
+              color: isPasswordValid
+                  ? AppColors.getSignAndRegister(context)
+                  : CupertinoColors.systemGrey,
               borderRadius: BorderRadius.circular(12),
               onPressed: isPasswordValid && !_isLoading ? _resetPassword : null,
               child: _isLoading
@@ -395,19 +432,23 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                   : const Text(
                       'Reset Password',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        color: AppColors.onPrimaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
             )
           : ElevatedButton(
               onPressed: isPasswordValid && !_isLoading ? _resetPassword : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isPasswordValid ? Colors.blue : Colors.grey,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: isPasswordValid
+                    ? AppColors.getSignAndRegister(context)
+                    : Colors.grey,
+                elevation: isPasswordValid ? 4 : 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: _isLoading
                   ? const SizedBox(
@@ -421,8 +462,9 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                   : const Text(
                       'Reset Password',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onPrimaryColor,
                       ),
                     ),
             ),

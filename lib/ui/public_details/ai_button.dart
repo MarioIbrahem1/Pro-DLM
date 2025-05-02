@@ -13,15 +13,12 @@ class AiButton extends StatelessWidget {
   Widget build(BuildContext context) {
     ResponsiveHelper.init(context);
 
-    // تحديد المنصة
+    // Get platform & screen size
     final platform = Theme.of(context).platform;
-
-    // احصل على أبعاد الشاشة
     final screenSize = MediaQuery.of(context).size;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // حساب الأبعاد الأساسية
         final dimensions = _calculateDimensions(screenSize, constraints);
 
         return Center(
@@ -47,7 +44,7 @@ class AiButton extends StatelessWidget {
     );
   }
 
-  // حساب الأبعاد حسب حجم الشاشة
+  // Dynamic sizing
   _Dimensions _calculateDimensions(
       Size screenSize, BoxConstraints constraints) {
     double width = screenSize.width * 0.85;
@@ -55,22 +52,18 @@ class AiButton extends StatelessWidget {
     double fontSize = screenSize.width * 0.045;
 
     if (constraints.maxWidth > 600) {
-      // tablet
       width = screenSize.width * 0.6;
       height = screenSize.height * 0.07;
       fontSize = screenSize.width * 0.035;
     }
     if (constraints.maxWidth > 1200) {
-      // desktop
       width = screenSize.width * 0.4;
       height = screenSize.height * 0.06;
       fontSize = screenSize.width * 0.025;
     }
-
     return _Dimensions(width, height, fontSize);
   }
 
-  // الحصول على الـ constraints المناسبة للمنصة
   BoxConstraints _getAdaptiveConstraints(TargetPlatform platform) {
     switch (platform) {
       case TargetPlatform.iOS:
@@ -98,15 +91,24 @@ class AiButton extends StatelessWidget {
     }
   }
 
-  // بناء الـ slider المتكيف مع المنصة
   Widget _buildAdaptiveSlider(
     BuildContext context,
     TargetPlatform platform,
     _Dimensions dimensions,
   ) {
-    // تخصيص الألوان والتأثيرات حسب المنصة
-    final gradientColors = _getPlatformGradientColors(platform);
-    final backgroundColor = _getPlatformBackgroundColor(platform);
+    // أفضل gradient للألوان بالاعتماد على AppColors
+    final List<Color> gradientColors = [
+      Colors.blue.shade300,
+      Colors.blue.shade400,
+      AppColors.getAiElevatedButton(context),
+      AppColors.getAiElevatedButton(context),
+    ];
+
+    final Color backgroundColor =
+        Theme.of(context).brightness == Brightness.light
+            ? AppColors.getAiElevatedButton2(context).withOpacity(0.9)
+            : const Color(0xFF2E3B55).withOpacity(0.9);
+
     return GradientSlideToAct(
       text: TextStrings.getStarted,
       sliderButtonIcon: _getPlatformIcon(platform),
@@ -122,16 +124,12 @@ class AiButton extends StatelessWidget {
         _navigateToAiChat(context, platform);
         debugPrint("Submitted!");
       },
-      dragableIcon: Icons.arrow_forward_ios, // تم التصحيح هنا
+      dragableIcon: Icons.arrow_forward_ios,
     );
   }
 
-  // الحصول على نمط النص المناسب للمنصة
   TextStyle _getAdaptiveTextStyle(
-    BuildContext context,
-    TargetPlatform platform,
-    double fontSize,
-  ) {
+      BuildContext context, TargetPlatform platform, double fontSize) {
     switch (platform) {
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
@@ -157,39 +155,6 @@ class AiButton extends StatelessWidget {
     }
   }
 
-  // الحصول على ألوان التدرج المناسبة للمنصة
-  List<Color> _getPlatformGradientColors(TargetPlatform platform) {
-    switch (platform) {
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-        return [
-          Colors.blue.shade300,
-          Colors.blue.shade400,
-          AppColors.aiElevatedButton,
-          AppColors.aiElevatedButton,
-        ];
-      default:
-        return const [
-          Colors.blue,
-          Colors.blue,
-          AppColors.aiElevatedButton,
-          AppColors.aiElevatedButton,
-        ];
-    }
-  }
-
-  // الحصول على لون الخلفية المناسب للمنصة
-  Color _getPlatformBackgroundColor(TargetPlatform platform) {
-    switch (platform) {
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-        return AppColors.aiElevatedButton2.withOpacity(0.9);
-      default:
-        return AppColors.aiElevatedButton2;
-    }
-  }
-
-  // الحصول على الأيقونة المناسبة للمنصة
   IconData _getPlatformIcon(TargetPlatform platform) {
     switch (platform) {
       case TargetPlatform.iOS:
@@ -200,22 +165,6 @@ class AiButton extends StatelessWidget {
     }
   }
 
-  // الحصول على أيقونة السحب المناسبة للمنصة
-  Widget? _getPlatformDragableIcon(TargetPlatform platform) {
-    switch (platform) {
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-        return const Icon(
-          CupertinoIcons.chevron_right,
-          color: Colors.white,
-          size: 24,
-        );
-      default:
-        return null;
-    }
-  }
-
-  // التنقل إلى شاشة AI Chat بشكل متكيف
   void _navigateToAiChat(BuildContext context, TargetPlatform platform) {
     Navigator.push(
       context,
@@ -226,7 +175,7 @@ class AiButton extends StatelessWidget {
   }
 }
 
-// كلاس مساعد لتخزين الأبعاد
+// Helper class for dynamic sizing
 class _Dimensions {
   final double width;
   final double height;

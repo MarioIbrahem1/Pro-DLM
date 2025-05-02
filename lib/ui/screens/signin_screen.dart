@@ -7,6 +7,7 @@ import 'package:road_helperr/ui/screens/email_screen.dart';
 import 'package:road_helperr/ui/screens/signupScreen.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/notification_service.dart';
+import 'package:road_helperr/utils/app_colors.dart';
 
 class SignInScreen extends StatefulWidget {
   static const String routeName = "signinscreen";
@@ -53,214 +54,248 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var mediaQuery = MediaQuery.of(context).size;
+    final bool isLight = Theme.of(context).brightness == Brightness.light;
+    final Size mediaQuery = MediaQuery.of(context).size;
+    final Color textColor = isLight ? Colors.black : Colors.white;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1F3551),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header Image
-            Container(
-              width: mediaQuery.width,
-              height: mediaQuery.height * 0.3,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1F3551),
-                image: DecorationImage(
-                  image: AssetImage("assets/images/rafiki.png"),
-                  fit: BoxFit.contain,
+      backgroundColor: isLight
+          ? const Color(0xFFF5F8FF)
+          : AppColors.getBackgroundColor(context),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Header Image
+              Container(
+                width: mediaQuery.width,
+                height: mediaQuery.height * 0.28,
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? AppColors.getCardColor(context)
+                      : AppColors.getBackgroundColor(context),
+                  image: const DecorationImage(
+                    image: AssetImage("assets/images/rafiki.png"),
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
-            ),
+              SizedBox(height: mediaQuery.height * 0.02),
 
-            // Main Content
-            Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF1F3551),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+              // Main Content
+              Container(
+                width: mediaQuery.width,
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? Colors.white
+                      : AppColors.getBackgroundColor(context),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
                 ),
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text(
-                        "Welcome Back!",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: mediaQuery.width * 0.05,
+                    vertical: mediaQuery.height * 0.02,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          "Welcome Back!",
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: mediaQuery.width * 0.06,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    ),
+                        SizedBox(height: mediaQuery.height * 0.03),
 
-                    // Email Input
-                    InputField(
-                      icon: Icons.email_outlined,
-                      hintText: "Enter your email",
-                      label: "Email",
-                      validatorIsContinue: (emailText) {
-                        final regExp = RegExp(
-                            r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
-                        if (emailText == null || emailText.isEmpty) {
-                          return "Please enter your email";
-                        }
-                        if (!regExp.hasMatch(emailText)) {
-                          return "Please enter a valid email";
-                        }
-                        return null;
-                      },
-                      controller: emailController,
-                    ),
-
-                    // Password Input
-                    InputField(
-                      icon: Icons.lock,
-                      hintText: "Enter your password",
-                      label: "Password",
-                      isPassword: true,
-                      validatorIsContinue: (passwordText) {
-                        if (passwordText == null || passwordText.isEmpty) {
-                          return "Please enter your password";
-                        }
-                        if (passwordText.length < 6) {
-                          return "Password must be at least 6 characters";
-                        }
-                        return null;
-                      },
-                      controller: passwordController,
-                    ),
-
-                    // Remember Me & Forgot Password
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Checkbox(
-                                value: status,
-                                onChanged: (value) {
-                                  setState(() {
-                                    status = value!;
-                                  });
-                                },
-                                fillColor:
-                                    WidgetStateProperty.all(Colors.white),
-                                checkColor: const Color(0xFF1F3551),
-                              ),
-                              const Text(
-                                "Remember me",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context)
-                                  .pushNamed(EmailScreen.routeName);
-                            },
-                            child: const Text(
-                              "Forgot Password?",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Login Button
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: MainButton(
-                        textButton: "Login",
-                        onPress: () async {
-                          if (_formKey.currentState!.validate()) {
-                            try {
-                              final response = await ApiService.login(
-                                emailController.text,
-                                passwordController.text,
-                              );
-
-                              if (!mounted) return;
-
-                              if (response['error'] != null) {
-                                NotificationService.showInvalidCredentials(
-                                    context);
-                              } else {
-                                // Save user data if remember me is checked
-                                if (status) {
-                                  await _saveUserData();
-                                }
-                                // Save logged in user email
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                await prefs.setString(
-                                    'logged_in_email', emailController.text);
-
-                                // Show success message before navigation
-                                NotificationService.showLoginSuccess(
-                                  context,
-                                  onConfirm: () {
-                                    Navigator.of(context).pushReplacementNamed(
-                                        HomeScreen.routeName);
-                                  },
-                                );
-                              }
-                            } catch (e) {
-                              NotificationService.showNetworkError(context);
+                        // Email Input
+                        InputField(
+                          icon: Icons.email_outlined,
+                          hintText: "Enter your email",
+                          label: "Email",
+                          validatorIsContinue: (emailText) {
+                            final regExp = RegExp(
+                                r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
+                            if (emailText == null || emailText.isEmpty) {
+                              return "Please enter your email";
                             }
-                          }
-                        },
-                      ),
-                    ),
+                            if (!regExp.hasMatch(emailText)) {
+                              return "Please enter a valid email";
+                            }
+                            return null;
+                          },
+                          controller: emailController,
+                        ),
+                        SizedBox(height: mediaQuery.height * 0.02),
 
-                    const OrBorder(),
+                        // Password Input
+                        InputField(
+                          icon: Icons.lock,
+                          hintText: "Enter your password",
+                          label: "Password",
+                          isPassword: true,
+                          validatorIsContinue: (passwordText) {
+                            if (passwordText == null || passwordText.isEmpty) {
+                              return "Please enter your password";
+                            }
+                            if (passwordText.length < 6) {
+                              return "Password must be at least 6 characters";
+                            }
+                            return null;
+                          },
+                          controller: passwordController,
+                        ),
+                        SizedBox(height: mediaQuery.height * 0.01),
 
-                    // Register Link
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "Don't have an account? ",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context)
-                                  .pushNamed(SignupScreen.routeName);
-                            },
-                            child: const Text(
-                              "Register",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                        // Remember Me & Forgot Password
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Transform.scale(
+                                  scale: 0.9,
+                                  child: Checkbox(
+                                    value: status,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        status = value!;
+                                      });
+                                    },
+                                    fillColor: WidgetStateProperty.all(
+                                      isLight
+                                          ? AppColors.getCardColor(context)
+                                          : Colors.white,
+                                    ),
+                                    checkColor: isLight
+                                        ? Colors.white
+                                        : AppColors.getBackgroundColor(context),
+                                  ),
+                                ),
+                                Text(
+                                  "Remember me",
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: mediaQuery.width * 0.035,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context)
+                                    .pushNamed(EmailScreen.routeName);
+                              },
+                              child: Text(
+                                "Forgot Password?",
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: mediaQuery.width * 0.035,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        SizedBox(height: mediaQuery.height * 0.02),
+
+                        // Login Button
+                        MainButton(
+                          textButton: "Login",
+                          onPress: () async {
+                            if (_formKey.currentState!.validate()) {
+                              try {
+                                final response = await ApiService.login(
+                                  emailController.text,
+                                  passwordController.text,
+                                );
+
+                                if (!mounted) return;
+
+                                if (response['error'] != null) {
+                                  NotificationService.showInvalidCredentials(
+                                      context);
+                                } else {
+                                  // Save user data if remember me is checked
+                                  if (status) {
+                                    await _saveUserData();
+                                  }
+                                  // Save logged in user email
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  await prefs.setString(
+                                      'logged_in_email', emailController.text);
+
+                                  // Show success message before navigation
+                                  NotificationService.showLoginSuccess(
+                                    context,
+                                    onConfirm: () {
+                                      Navigator.of(context)
+                                          .pushReplacementNamed(
+                                              HomeScreen.routeName);
+                                    },
+                                  );
+                                }
+                              } catch (e) {
+                                NotificationService.showNetworkError(context);
+                              }
+                            }
+                          },
+                        ),
+                        SizedBox(height: mediaQuery.height * 0.02),
+
+                        const OrBorder(),
+                        SizedBox(height: mediaQuery.height * 0.02),
+
+                        // Register Link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Don't have an account? ",
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: mediaQuery.width * 0.035,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context)
+                                    .pushNamed(SignupScreen.routeName);
+                              },
+                              child: Text(
+                                "Register",
+                                style: TextStyle(
+                                  color: isLight
+                                      ? AppColors.getTextStackColor(context)
+                                      : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: mediaQuery.width * 0.035,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// تعديل InputField Widget ليشمل controller
+// InputField Widget يدعم الثيم الدايناميك
 class InputField extends StatefulWidget {
   final IconData icon;
   final String hintText;
@@ -288,49 +323,82 @@ class _InputFieldState extends State<InputField> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: TextFormField(
-        controller: widget.controller,
-        obscureText: widget.isPassword ? _isObscure : false,
-        validator: widget.validatorIsContinue,
-        decoration: InputDecoration(
-          prefixIcon: Icon(widget.icon, color: Colors.white),
-          suffixIcon: widget.isPassword
-              ? IconButton(
-                  icon: Icon(
-                    _isObscure ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isObscure = !_isObscure;
-                    });
-                  },
-                )
-              : null,
-          hintText: widget.hintText,
-          labelText: widget.label,
-          labelStyle: const TextStyle(color: Colors.white),
-          hintStyle: const TextStyle(color: Colors.white54),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
+    final bool isLightMode = Theme.of(context).brightness == Brightness.light;
+    final Color textColor = isLightMode ? Colors.black : Colors.white;
+    var width = MediaQuery.of(context).size.width;
+
+    return TextFormField(
+      controller: widget.controller,
+      obscureText: widget.isPassword ? _isObscure : false,
+      validator: widget.validatorIsContinue,
+      style: TextStyle(
+        color: textColor,
+        fontSize: width * 0.04,
+      ),
+      decoration: InputDecoration(
+        prefixIcon: Icon(
+          widget.icon,
+          color: textColor,
+          size: width * 0.055,
+        ),
+        suffixIcon: widget.isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isObscure ? Icons.visibility_off : Icons.visibility,
+                  color: textColor,
+                  size: width * 0.055,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isObscure = !_isObscure;
+                  });
+                },
+              )
+            : null,
+        hintText: widget.hintText,
+        labelText: widget.label,
+        labelStyle: TextStyle(
+          color: textColor,
+          fontSize: width * 0.04,
+        ),
+        hintStyle: TextStyle(
+          color: isLightMode ? Colors.grey[600] : Colors.white54,
+          fontSize: width * 0.035,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          vertical: width * 0.04,
+          horizontal: width * 0.04,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(width * 0.04),
+          borderSide: BorderSide(
+            color: textColor,
+            width: 1.5,
           ),
         ),
-        style: const TextStyle(color: Colors.white),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(width * 0.04),
+          borderSide: BorderSide(
+            color: textColor,
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(width * 0.04),
+          borderSide: const BorderSide(
+            color: Colors.red,
+            width: 1.5,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(width * 0.04),
+          borderSide: const BorderSide(
+            color: Colors.red,
+            width: 2,
+          ),
+        ),
+        filled: true,
+        fillColor: isLightMode ? Colors.white : Colors.transparent,
       ),
     );
   }

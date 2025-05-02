@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:road_helperr/ui/screens/otp_expired_screen.dart';
+import 'package:road_helperr/utils/app_colors.dart';
 
 class TimerScreen extends StatefulWidget {
   const TimerScreen({super.key});
@@ -48,10 +49,10 @@ class _TimerScreenState extends State<TimerScreen> {
     return Center(
       child: Text(
         "00:$_seconds",
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: Color(0xFFA4A4A4),
+          color: AppColors.getOtpFieldColor(context), // ديناميك مع الثيم
         ),
       ),
     );

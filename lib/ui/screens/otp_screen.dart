@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.dart';
 import 'package:road_helperr/ui/screens/otp_expired_screen.dart';
+import 'package:road_helperr/utils/app_colors.dart';
 
 class OtpScreen extends StatefulWidget {
   static const String routeName = "otpscreen";
@@ -43,9 +44,7 @@ class _OtpScreenState extends State<OtpScreen> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingTime > 0) {
-        setState(() {
-          _remainingTime--;
-        });
+        setState(() => _remainingTime--);
       } else {
         _timer.cancel();
         _navigateToTimeoutScreen();
@@ -82,8 +81,14 @@ class _OtpScreenState extends State<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ديناميك مع الثيم
+    final bgColor = AppColors.getBackgroundColor(context);
+    final containerColor = AppColors.getCardColor(context);
+    final textColor = AppColors.getTextStackColor(context);
+    final buttonColor = AppColors.getSignAndRegister(context);
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundColor,
+      backgroundColor: bgColor,
       resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -98,7 +103,8 @@ class _OtpScreenState extends State<OtpScreen> {
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                   _buildTopImage(),
-                  _buildMainContainer(context),
+                  _buildMainContainer(
+                      context, containerColor, textColor, buttonColor),
                 ],
               ),
             ),
@@ -119,7 +125,8 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  Widget _buildMainContainer(BuildContext context) {
+  Widget _buildMainContainer(BuildContext context, Color containerColor,
+      Color textColor, Color buttonColor) {
     return Container(
       width: double.infinity,
       height: MediaQuery.of(context).size.height * 0.75,
@@ -131,9 +138,9 @@ class _OtpScreenState extends State<OtpScreen> {
         horizontal: MediaQuery.of(context).size.width * 0.05,
         vertical: MediaQuery.of(context).size.height * 0.02,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.containerColor,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
         ),
@@ -142,25 +149,25 @@ class _OtpScreenState extends State<OtpScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildVerificationText(),
+          _buildVerificationText(textColor),
           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
           _buildOtpFields(),
           SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-          _buildTimer(),
+          _buildTimer(textColor),
           SizedBox(height: MediaQuery.of(context).size.height * 0.04),
-          _buildButtons(),
+          _buildButtons(buttonColor),
         ],
       ),
     );
   }
 
-  Widget _buildVerificationText() {
+  Widget _buildVerificationText(Color textColor) {
     return Text(
       "We have sent a verification\ncode to the email\n\"A**@gmail.com\"",
       style: TextStyle(
         fontSize: MediaQuery.of(context).size.width * 0.04,
         fontWeight: FontWeight.w500,
-        color: AppColors.textColor,
+        color: textColor,
       ),
       textAlign: TextAlign.center,
     );
@@ -184,6 +191,8 @@ class _OtpScreenState extends State<OtpScreen> {
 
   Widget _buildSingleOtpField(TextEditingController controller,
       FocusNode currentFocus, FocusNode? nextFocus) {
+    final containerColor = AppColors.getCardColor(context);
+
     return SizedBox(
       width: 40,
       height: 50,
@@ -193,11 +202,11 @@ class _OtpScreenState extends State<OtpScreen> {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         maxLength: 1,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           counterText: '',
           filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
+          fillColor: containerColor,
+          border: const OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(8))),
         ),
         onChanged: (value) {
@@ -209,18 +218,21 @@ class _OtpScreenState extends State<OtpScreen> {
     );
   }
 
-  Widget _buildTimer() {
+  Widget _buildTimer(Color textColor) {
     return Text(
       "00:${_remainingTime.toString().padLeft(2, '0')}",
-      style: const TextStyle(
-          fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: textColor,
+      ),
     );
   }
 
-  Widget _buildButtons() {
+  Widget _buildButtons(Color buttonColor) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primaryButtonColor,
+        backgroundColor: buttonColor,
         minimumSize: const Size(double.infinity, 50),
       ),
       onPressed: () {
@@ -228,7 +240,7 @@ class _OtpScreenState extends State<OtpScreen> {
             .every((controller) => controller.text.isNotEmpty);
 
         if (isOtpComplete) {
-          _timer.cancel(); // إيقاف التايمر هنا
+          _timer.cancel();
           Navigator.pushNamed(context, HomeScreen.routeName);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -240,17 +252,12 @@ class _OtpScreenState extends State<OtpScreen> {
           );
         }
       },
-      child: const Text("Verify",
-          style: TextStyle(fontSize: 18, color: Colors.white)),
+      child: const Text(
+        "Verify",
+        style: TextStyle(fontSize: 18, color: Colors.white),
+      ),
     );
   }
-}
-
-class AppColors {
-  static const Color backgroundColor = Color(0xFF1F3551);
-  static const Color containerColor = Color(0xFF01122A);
-  static const Color textColor = Color(0xFFA4A4A4);
-  static const Color primaryButtonColor = Color(0xFF023A87);
 }
 
 

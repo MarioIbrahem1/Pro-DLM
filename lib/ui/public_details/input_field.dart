@@ -32,54 +32,63 @@ class _InputFieldState extends State<InputField> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final hintColor = isDarkMode ? Colors.white54 : Colors.black54;
+    final borderColor = isDarkMode ? Colors.white : Colors.black87;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: widget.focusNode,
-        obscureText: widget.isPassword ? _isObscure : false,
-        validator: widget.validatorIsContinue,
-        keyboardType: widget.keyboardType,
-        inputFormatters: widget.keyboardType == TextInputType.number
-            ? [FilteringTextInputFormatter.digitsOnly]
-            : null,
-        decoration: InputDecoration(
-          prefixIcon: Icon(widget.icon, color: Colors.white),
-          suffixIcon: widget.isPassword
-              ? IconButton(
-                  icon: Icon(
-                    _isObscure ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isObscure = !_isObscure;
-                    });
-                  },
-                )
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
+      child: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.98,
+        child: TextFormField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          obscureText: widget.isPassword ? _isObscure : false,
+          validator: widget.validatorIsContinue,
+          keyboardType: widget.keyboardType,
+          inputFormatters: widget.keyboardType == TextInputType.number
+              ? [FilteringTextInputFormatter.digitsOnly]
               : null,
-          hintText: widget.hintText,
-          labelText: widget.label,
-          labelStyle: const TextStyle(color: Colors.white),
-          hintStyle: const TextStyle(color: Colors.white54),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 35, vertical: 15),
+            prefixIcon: Icon(widget.icon, color: textColor),
+            suffixIcon: widget.isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _isObscure ? Icons.visibility_off : Icons.visibility,
+                      color: textColor,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isObscure = !_isObscure;
+                      });
+                    },
+                  )
+                : null,
+            hintText: widget.hintText,
+            labelText: widget.label,
+            labelStyle: TextStyle(color: textColor),
+            hintStyle: TextStyle(color: hintColor),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
+          style: TextStyle(color: textColor),
         ),
-        style: const TextStyle(color: Colors.white),
       ),
     );
   }

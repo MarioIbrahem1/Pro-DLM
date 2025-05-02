@@ -43,27 +43,23 @@ class _ValidationFormState extends State<ValidationForm> {
   void dispose() {
     firstNameController.dispose();
     firstNameFocusNode.dispose();
-
     lastNameController.dispose();
     lastNameFocusNode.dispose();
-
     phoneController.dispose();
     phoneFocusNode.dispose();
-
     emailController.dispose();
     emailFocusNode.dispose();
-
     passwordController.dispose();
     passwordFocusNode.dispose();
-
     confirmPasswordController.dispose();
     confirmPasswordFocusNode.dispose();
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
       child: Form(
@@ -169,7 +165,6 @@ class _ValidationFormState extends State<ValidationForm> {
                 textButton: TextStrings.textButton3,
                 onPress: () async {
                   if (_formKey.currentState!.validate()) {
-                    // If validation passes, navigate to car settings
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -185,7 +180,6 @@ class _ValidationFormState extends State<ValidationForm> {
                       ),
                     );
                   } else {
-                    // Show validation error message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Please fill all fields correctly'),
@@ -203,15 +197,16 @@ class _ValidationFormState extends State<ValidationForm> {
                 children: [
                   Text(
                     TextStrings.textToSignUp,
-                    style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                          color: colo.AppColors.borderField,
-                        ),
+                    style: TextStyle(
+                      color: colo.AppColors.getBorderField(context),
+                      fontSize: width * 0.035,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   TextButton(
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         try {
-                          // Prepare registration data
                           final registrationData = {
                             'firstName': firstNameController.text.trim(),
                             'lastName': lastNameController.text.trim(),
@@ -220,17 +215,14 @@ class _ValidationFormState extends State<ValidationForm> {
                             'password': passwordController.text.trim(),
                           };
 
-                          // Store data in provider
                           Provider.of<SignupProvider>(context, listen: false)
                               .setUserData(registrationData);
 
-                          // Send OTP to the email without verification
                           final otpResponse =
                               await ApiService.sendOTPWithoutVerification(
                                   registrationData['email']!);
 
                           if (otpResponse['success'] == true) {
-                            // Show success message
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -241,7 +233,6 @@ class _ValidationFormState extends State<ValidationForm> {
                               ),
                             );
 
-                            // Navigate to OTP screen
                             if (!mounted) return;
                             Navigator.push(
                               context,
@@ -253,7 +244,6 @@ class _ValidationFormState extends State<ValidationForm> {
                               ),
                             );
                           } else {
-                            // Show OTP sending error
                             if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -265,7 +255,6 @@ class _ValidationFormState extends State<ValidationForm> {
                             );
                           }
                         } catch (e) {
-                          // Show error message in a snackbar
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -276,7 +265,6 @@ class _ValidationFormState extends State<ValidationForm> {
                           );
                         }
                       } else {
-                        // Show validation error message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Please fill all fields correctly'),
@@ -288,9 +276,11 @@ class _ValidationFormState extends State<ValidationForm> {
                     },
                     child: Text(
                       TextStrings.logIn,
-                      style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                            color: colo.AppColors.signAndRegister,
-                          ),
+                      style: TextStyle(
+                        color: colo.AppColors.getSignAndRegister(context),
+                        fontSize: width * 0.035,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

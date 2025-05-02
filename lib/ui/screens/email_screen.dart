@@ -12,7 +12,6 @@ class EmailScreen extends StatefulWidget {
   const EmailScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _EmailScreenState createState() => _EmailScreenState();
 }
 
@@ -55,8 +54,6 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Future<void> _validateAndNavigate() async {
-    print('_validateAndNavigate called');
-
     if (_emailController.text.isEmpty) {
       NotificationService.showError(
         context: context,
@@ -80,12 +77,9 @@ class _EmailScreenState extends State<EmailScreen>
     });
 
     try {
-      print('Sending OTP request for: ${_emailController.text}');
       final response = await ApiService.sendOTP(_emailController.text);
-      print('OTP send response: $response');
 
       if (response['success']) {
-        print('OTP sent successfully, navigating to OTP screen');
         if (mounted) {
           NotificationService.showSuccess(
             context: context,
@@ -103,7 +97,6 @@ class _EmailScreenState extends State<EmailScreen>
           );
         }
       } else {
-        print('OTP send failed: ${response['error']}');
         if (mounted) {
           NotificationService.showError(
             context: context,
@@ -113,7 +106,6 @@ class _EmailScreenState extends State<EmailScreen>
         }
       }
     } catch (e) {
-      print('Error in _validateAndNavigate: $e');
       if (mounted) {
         NotificationService.showError(
           context: context,
@@ -138,13 +130,17 @@ class _EmailScreenState extends State<EmailScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final platform = Theme.of(context).platform;
-    final isIOS = platform == TargetPlatform.iOS;
+    final bool isIOS = platform == TargetPlatform.iOS;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final double paddingHorizontal = size.width * 0.1;
     const double maxWidth = 450.0;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        decoration: BoxDecoration(
+          gradient: isLight ? null : AppColors.primaryGradient,
+          color: isLight ? Colors.white : null,
+        ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -158,11 +154,18 @@ class _EmailScreenState extends State<EmailScreen>
                   ),
                   child: Column(
                     children: [
-                      _buildAnimatedImage(),
-                      _buildHeaderTexts(size),
-                      _buildEmailInput(size, isIOS),
-                      _buildGetOTPButton(size, isIOS),
-                      _buildRegisterLink(size),
+                      _buildAnimatedImage(isLight),
+                      _buildHeaderTexts(size, isLight),
+                      _buildEmailInput(size, isIOS, isLight),
+                      _buildGetOTPButton(size, isIOS, isLight),
+                      _buildRegisterLink(size, isLight),
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 24.0),
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -174,7 +177,7 @@ class _EmailScreenState extends State<EmailScreen>
     );
   }
 
-  Widget _buildAnimatedImage() {
+  Widget _buildAnimatedImage(bool isLightMode) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,
@@ -196,7 +199,9 @@ class _EmailScreenState extends State<EmailScreen>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primaryBlue.withOpacity(0.2),
+                      color: isLightMode
+                          ? const Color(0xFF4285F4).withOpacity(0.2)
+                          : AppColors.primaryBlue.withOpacity(0.2),
                       blurRadius: 15,
                       offset: Offset(0, 5 + (_moveAnimation.value * 0.2)),
                     ),
@@ -214,7 +219,7 @@ class _EmailScreenState extends State<EmailScreen>
     );
   }
 
-  Widget _buildHeaderTexts(Size size) {
+  Widget _buildHeaderTexts(Size size, bool isLightMode) {
     return Container(
       margin: EdgeInsets.symmetric(vertical: size.height * 0.03),
       child: Column(
@@ -224,7 +229,7 @@ class _EmailScreenState extends State<EmailScreen>
             child: Text(
               'OTP Verification',
               style: TextStyle(
-                color: AppColors.white,
+                color: isLightMode ? Colors.black : AppColors.white,
                 fontSize: min(size.width * 0.06, 24),
                 fontWeight: FontWeight.bold,
               ),
@@ -237,7 +242,9 @@ class _EmailScreenState extends State<EmailScreen>
               'We will send you an One Time Password\non your email address',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.white.withOpacity(0.7),
+                color: isLightMode
+                    ? Colors.black.withOpacity(0.7)
+                    : AppColors.white.withOpacity(0.7),
                 fontSize: min(size.width * 0.04, 16),
               ),
             ),
@@ -247,26 +254,31 @@ class _EmailScreenState extends State<EmailScreen>
     );
   }
 
-  Widget _buildEmailInput(Size size, bool isIOS) {
+  Widget _buildEmailInput(Size size, bool isIOS, bool isLightMode) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
+      margin: EdgeInsets.only(top: size.height * 0.01),
       decoration: BoxDecoration(
-        color: AppColors.white.withOpacity(0.1),
+        color: isLightMode ? Colors.white : AppColors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.primaryBlue.withOpacity(0.3),
+          color: isLightMode
+              ? const Color(0xFF4285F4)
+              : AppColors.primaryBlue.withOpacity(0.3),
         ),
       ),
       child: isIOS
           ? CupertinoTextField(
               controller: _emailController,
               style: TextStyle(
-                color: AppColors.white,
+                color: isLightMode ? Colors.black : AppColors.white,
                 fontSize: min(size.width * 0.04, 16),
               ),
               placeholder: 'Enter your email',
               placeholderStyle: TextStyle(
-                color: AppColors.white.withOpacity(0.5),
+                color: isLightMode
+                    ? Colors.black.withOpacity(0.5)
+                    : AppColors.white.withOpacity(0.5),
                 fontSize: min(size.width * 0.04, 16),
               ),
               padding: EdgeInsets.symmetric(
@@ -282,13 +294,15 @@ class _EmailScreenState extends State<EmailScreen>
           : TextFormField(
               controller: _emailController,
               style: TextStyle(
-                color: AppColors.white,
+                color: isLightMode ? Colors.black : AppColors.white,
                 fontSize: min(size.width * 0.04, 16),
               ),
               decoration: InputDecoration(
                 hintText: 'Enter your email',
                 hintStyle: TextStyle(
-                  color: AppColors.white.withOpacity(0.5),
+                  color: isLightMode
+                      ? Colors.black.withOpacity(0.5)
+                      : AppColors.white.withOpacity(0.5),
                   fontSize: min(size.width * 0.04, 16),
                 ),
                 border: InputBorder.none,
@@ -311,64 +325,101 @@ class _EmailScreenState extends State<EmailScreen>
     );
   }
 
-  Widget _buildGetOTPButton(Size size, bool isIOS) {
+  Widget _buildGetOTPButton(Size size, bool isIOS, bool isLightMode) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
       height: 48,
       margin: EdgeInsets.only(top: size.height * 0.03),
       child: isIOS
           ? CupertinoButton(
-              color: const Color.fromARGB(255, 119, 146, 184),
+              color: isLightMode
+                  ? const Color(0xFF023A87)
+                  : const Color.fromARGB(255, 119, 146, 184),
               borderRadius: BorderRadius.circular(12),
-              onPressed: _validateAndNavigate,
-              child: Text(
-                'Get OTP',
-                style: TextStyle(
-                  fontSize: min(size.width * 0.04, 16),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              onPressed: _isLoading ? null : _validateAndNavigate,
+              child: _isLoading
+                  ? const CupertinoActivityIndicator()
+                  : Text(
+                      'Get OTP',
+                      style: TextStyle(
+                        fontSize: min(size.width * 0.04, 16),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
             )
           : ElevatedButton(
-              onPressed: _validateAndNavigate,
+              onPressed: _isLoading ? null : _validateAndNavigate,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 162, 172, 185),
+                backgroundColor: isLightMode
+                    ? const Color(0xFF023A87)
+                    : const Color.fromARGB(255, 162, 172, 185),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(
-                'Get OTP',
-                style: TextStyle(
-                  fontSize: min(size.width * 0.04, 16),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      'Get OTP',
+                      style: TextStyle(
+                        fontSize: min(size.width * 0.04, 16),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
     );
   }
 
-  Widget _buildRegisterLink(Size size) {
+  Widget _buildRegisterLink(Size size, bool isLightMode) {
     return Container(
-      margin: EdgeInsets.only(top: size.height * 0.02),
+      margin: EdgeInsets.only(top: size.height * 0.04),
       child: Center(
-        child: TextButton(
-          onPressed: () {
-            // Navigate to Registration Screen
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SignupScreen(),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Don't Have An Account?",
+              style: TextStyle(
+                color: isLightMode
+                    ? const Color(0xFFA19D9D)
+                    : AppColors.white.withOpacity(0.7),
+                fontSize: min(size.width * 0.035, 14),
               ),
-            );
-          },
-          child: Text(
-            "Don't Have An Account? Register",
-            style: TextStyle(
-              color: AppColors.white.withOpacity(0.7),
-              fontSize: min(size.width * 0.035, 14),
             ),
-          ),
+            TextButton(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SignupScreen(),
+                  ),
+                );
+              },
+              child: Text(
+                "Register",
+                style: TextStyle(
+                  color: isLightMode
+                      ? const Color(0xFF4285F4)
+                      : AppColors.white.withOpacity(0.7),
+                  fontSize: min(size.width * 0.035, 14),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
