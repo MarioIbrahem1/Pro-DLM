@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:road_helperr/models/user_location.dart';
+import 'package:road_helperr/services/help_request_service.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
+import 'package:road_helperr/ui/widgets/user_details_bottom_sheet.dart';
 import '../../../utils/app_colors.dart';
 import '../ai_welcome_screen.dart';
 import 'home_screen.dart';
@@ -118,6 +121,11 @@ class MapScreenState extends State<MapScreen> {
             _routeData = routeData;
             _isShowingRoute = routeData != null;
           });
+        }
+      },
+      onUserSelected: (user) {
+        if (mounted) {
+          _showUserDetailsBottomSheet(user);
         }
       },
     );
@@ -564,6 +572,14 @@ class MapScreenState extends State<MapScreen> {
   void _onMapCreated(GoogleMapController controller) async {
     mapController = controller;
     _mapController.setMapController(controller);
+
+    // Initialize help request service
+    HelpRequestService().initialize();
+  }
+
+  // Show user details bottom sheet
+  void _showUserDetailsBottomSheet(UserLocation user) {
+    UserDetailsBottomSheet.show(context, user, _currentLocation);
   }
 
   Widget _buildMaterialNavBar(

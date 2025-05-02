@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/models/user_location.dart';
+import 'package:road_helperr/models/help_request.dart';
+import 'package:road_helperr/models/user_rating.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
@@ -508,6 +511,207 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error fetching nearby users: $e');
+    }
+  }
+
+  // Get user data by email
+  static Future<Map<String, dynamic>> getUserData(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/data'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({"email": email}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to fetch user data');
+      }
+    } catch (e) {
+      throw Exception('Error fetching user data: $e');
+    }
+  }
+
+  // Send help request
+  static Future<Map<String, dynamic>> sendHelpRequest({
+    required String receiverId,
+    required LatLng senderLocation,
+    required LatLng receiverLocation,
+    String? message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/help-request/send'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+        body: jsonEncode({
+          'receiverId': receiverId,
+          'senderLocation': {
+            'latitude': senderLocation.latitude,
+            'longitude': senderLocation.longitude,
+          },
+          'receiverLocation': {
+            'latitude': receiverLocation.latitude,
+            'longitude': receiverLocation.longitude,
+          },
+          'message': message,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to send help request');
+      }
+    } catch (e) {
+      throw Exception('Error sending help request: $e');
+    }
+  }
+
+  // Respond to help request
+  static Future<Map<String, dynamic>> respondToHelpRequest({
+    required String requestId,
+    required bool accept,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/help-request/respond'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+        body: jsonEncode({
+          'requestId': requestId,
+          'accept': accept,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to respond to help request');
+      }
+    } catch (e) {
+      throw Exception('Error responding to help request: $e');
+    }
+  }
+
+  // Get pending help requests
+  static Future<List<HelpRequest>> getPendingHelpRequests() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/help-request/pending'),
+        headers: {
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => HelpRequest.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch pending help requests');
+      }
+    } catch (e) {
+      throw Exception('Error fetching pending help requests: $e');
+    }
+  }
+
+  // Get help request by ID
+  static Future<HelpRequest> getHelpRequestById(String requestId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/help-request/$requestId'),
+        headers: {
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return HelpRequest.fromJson(data);
+      } else {
+        throw Exception('Failed to fetch help request');
+      }
+    } catch (e) {
+      throw Exception('Error fetching help request: $e');
+    }
+  }
+
+  // Rate a user
+  static Future<Map<String, dynamic>> rateUser({
+    required String userId,
+    required double rating,
+    String? comment,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/user/rate'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'rating': rating,
+          'comment': comment,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to rate user');
+      }
+    } catch (e) {
+      throw Exception('Error rating user: $e');
+    }
+  }
+
+  // Get user ratings
+  static Future<List<UserRating>> getUserRatings(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/$userId/ratings'),
+        headers: {
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => UserRating.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch user ratings');
+      }
+    } catch (e) {
+      throw Exception('Error fetching user ratings: $e');
+    }
+  }
+
+  // Get user average rating
+  static Future<double> getUserAverageRating(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user/$userId/average-rating'),
+        headers: {
+          'Authorization': 'Bearer ${await _getToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['averageRating'].toDouble();
+      } else {
+        throw Exception('Failed to fetch user average rating');
+      }
+    } catch (e) {
+      throw Exception('Error fetching user average rating: $e');
     }
   }
 }

@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/places_service.dart';
+import 'package:road_helperr/ui/widgets/user_details_bottom_sheet.dart';
+import 'package:road_helperr/utils/marker_animation.dart';
+import 'package:road_helperr/utils/marker_utils.dart';
 import 'package:road_helperr/utils/polyline_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,6 +25,9 @@ class MapController {
   Set<Marker> _markers = {};
   Set<Marker> _userMarkers = {};
   Marker? _nearestPlaceMarker;
+
+  // Store previous user locations for animation
+  Map<String, UserLocation> _previousUserLocations = {};
 
   // Polylines for routes
   Set<Polyline> _polylines = {};
@@ -69,6 +76,8 @@ class MapController {
   final Function(Map<String, dynamic>?, double?, String?)?
       onNearestPlaceChanged;
   final Function(Map<String, dynamic>?)? onRouteChanged;
+  final Function(UserLocation)? onUserSelected;
+  final Function(UserLocation, double, String)? onUserRouteCreated;
 
   MapController({
     required this.onLoadingChanged,
@@ -79,6 +88,8 @@ class MapController {
     required this.onPlaceSelected,
     this.onNearestPlaceChanged,
     this.onRouteChanged,
+    this.onUserSelected,
+    this.onUserRouteCreated,
   });
 
   /// Initialize map and location
@@ -108,7 +119,8 @@ class MapController {
   /// Start periodic location updates
   void startLocationUpdates() {
     _locationUpdateTimer?.cancel();
-    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Update location more frequently (every 10 seconds)
+    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _updateUserLocation();
     });
   }
@@ -116,7 +128,8 @@ class MapController {
   /// Start periodic nearby users updates
   void startUsersUpdates() {
     _usersUpdateTimer?.cancel();
-    _usersUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    // Update nearby users more frequently (every 15 seconds)
+    _usersUpdateTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       _fetchNearbyUsers();
     });
   }
@@ -141,26 +154,89 @@ class MapController {
       List<UserLocation> nearbyUsers = await ApiService.getNearbyUsers(
         latitude: position.latitude,
         longitude: position.longitude,
-        radius: 5000,
+        radius: 10000, // 10 km radius
       );
 
+      // Create car markers for each user
       Set<Marker> userMarkers = {};
       for (var user in nearbyUsers) {
-        userMarkers.add(
-          Marker(
-            markerId: MarkerId(user.userId),
-            position: user.position,
-            infoWindow: InfoWindow(
-              title: user.userName,
-              snippet: user.isOnline ? 'Online' : 'Offline',
+        // Create a car marker icon
+        BitmapDescriptor carIcon;
+        try {
+          carIcon = await MarkerUtils.createCarMarkerFromAsset(
+            'assets/images/carDark.png',
+            width: 60,
+            height: 60,
+          );
+        } catch (e) {
+          // Fallback to default marker if custom icon fails
+          carIcon = BitmapDescriptor.defaultMarkerWithHue(
+            user.isOnline ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueRed,
+          );
+          debugPrint('Error creating car marker icon: $e');
+        }
+
+        // Create a user with the marker icon
+        final userWithIcon = user.copyWith(markerIcon: carIcon);
+
+        // Check if we have a previous location for this user
+        if (_previousUserLocations.containsKey(user.userId)) {
+          final previousUser = _previousUserLocations[user.userId]!;
+
+          // Only animate if the position has changed
+          if (previousUser.position != user.position) {
+            // Add marker with animation
+            final marker = Marker(
+              markerId: MarkerId(user.userId),
+              position: user.position,
+              infoWindow: InfoWindow(
+                title: user.userName,
+                snippet:
+                    user.carModel ?? (user.isOnline ? 'Online' : 'Offline'),
+              ),
+              icon: carIcon,
+              // Calculate rotation based on movement direction
+              rotation:
+                  _calculateRotation(previousUser.position, user.position),
+              onTap: () => _handleUserMarkerTap(userWithIcon),
+            );
+
+            userMarkers.add(marker);
+          } else {
+            // No movement, just add the marker at the current position
+            userMarkers.add(
+              Marker(
+                markerId: MarkerId(user.userId),
+                position: user.position,
+                infoWindow: InfoWindow(
+                  title: user.userName,
+                  snippet:
+                      user.carModel ?? (user.isOnline ? 'Online' : 'Offline'),
+                ),
+                icon: carIcon,
+                onTap: () => _handleUserMarkerTap(userWithIcon),
+              ),
+            );
+          }
+        } else {
+          // First time seeing this user, just add the marker
+          userMarkers.add(
+            Marker(
+              markerId: MarkerId(user.userId),
+              position: user.position,
+              infoWindow: InfoWindow(
+                title: user.userName,
+                snippet:
+                    user.carModel ?? (user.isOnline ? 'Online' : 'Offline'),
+              ),
+              icon: carIcon,
+              onTap: () => _handleUserMarkerTap(userWithIcon),
             ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              user.isOnline
-                  ? BitmapDescriptor.hueGreen
-                  : BitmapDescriptor.hueRed,
-            ),
-          ),
-        );
+          );
+        }
+
+        // Update previous location for next time
+        _previousUserLocations[user.userId] = userWithIcon;
       }
 
       _userMarkers = userMarkers;
@@ -168,6 +244,113 @@ class MapController {
     } catch (e) {
       debugPrint('Error fetching nearby users: $e');
     }
+  }
+
+  /// Calculate rotation angle based on movement direction
+  double _calculateRotation(LatLng from, LatLng to) {
+    if (from.latitude == to.latitude && from.longitude == to.longitude) {
+      return 0;
+    }
+
+    final double deltaLng = to.longitude - from.longitude;
+    final double deltaLat = to.latitude - from.latitude;
+
+    // Calculate bearing angle in radians
+    final double bearing = atan2(deltaLng, deltaLat);
+
+    // Convert to degrees
+    double bearingDegrees = bearing * 180 / pi;
+
+    // Normalize to 0-360
+    if (bearingDegrees < 0) {
+      bearingDegrees += 360;
+    }
+
+    return bearingDegrees;
+  }
+
+  /// Handle user marker tap
+  void _handleUserMarkerTap(UserLocation user) {
+    // We need to use a callback to show the bottom sheet
+    // This will be called from the map screen
+    if (user.userId.isNotEmpty) {
+      debugPrint('User tapped: ${user.userName}');
+
+      // Call the callback if provided
+      if (onUserSelected != null) {
+        onUserSelected!(user);
+      }
+    }
+  }
+
+  // Function to show user details bottom sheet (to be called from map screen)
+  void showUserDetails(BuildContext context, String userId) {
+    // Find the user by ID
+    final userMarker = _userMarkers.firstWhere(
+      (marker) => marker.markerId.value == userId,
+      orElse: () => const Marker(markerId: MarkerId('not_found')),
+    );
+
+    if (userMarker.markerId.value != 'not_found') {
+      // Get user data and show bottom sheet
+      // This is a placeholder - the actual implementation will depend on how user data is stored
+      debugPrint('Showing details for user: ${userMarker.infoWindow.title}');
+    }
+  }
+
+  /// Create a route to another user
+  Future<bool> createRouteToUser(UserLocation otherUser) async {
+    try {
+      // Get current location
+      Position position = await Geolocator.getCurrentPosition();
+      final currentLocation = LatLng(position.latitude, position.longitude);
+
+      // Calculate route
+      final result = await PlacesService.getDirections(
+        originLat: currentLocation.latitude,
+        originLng: currentLocation.longitude,
+        destLat: otherUser.position.latitude,
+        destLng: otherUser.position.longitude,
+      );
+
+      if (result['status'] == 'OK') {
+        // Extract route information
+        final points = PolylineUtils.decodePolyline(result['points']);
+        final distance = result['distance']['value'] as int;
+        final duration = result['duration']['text'] as String;
+
+        // Create polyline
+        final polyline = Polyline(
+          polylineId: const PolylineId('user_route'),
+          points: points,
+          color: Colors.blue,
+          width: 5,
+        );
+
+        // Update polylines
+        _polylines = {polyline};
+        onPolylinesChanged(_polylines);
+
+        // Notify about route creation
+        if (onUserRouteCreated != null) {
+          onUserRouteCreated!(otherUser, distance.toDouble(), duration);
+        }
+
+        return true;
+      } else {
+        debugPrint('Failed to get directions: ${result['status']}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Error creating route to user: $e');
+      return false;
+    }
+  }
+
+  /// Clear the route to user
+  void clearUserRoute() {
+    _polylines = {};
+    onPolylinesChanged(_polylines);
   }
 
   /// Get current location

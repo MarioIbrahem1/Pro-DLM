@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:road_helperr/providers/signup_provider.dart';
+import 'package:road_helperr/services/local_notification_service.dart';
 import 'package:road_helperr/ui/screens/about_screen.dart';
 import 'package:road_helperr/ui/screens/ai_chat.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
@@ -51,6 +53,12 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _positionStream = _locationService.positionStream;
     _checkLocation();
+    _initializeNotifications();
+  }
+
+  // Inicializar el servicio de notificaciones locales
+  Future<void> _initializeNotifications() async {
+    await LocalNotificationService().initialize();
   }
 
   Future<void> _checkLocation() async {

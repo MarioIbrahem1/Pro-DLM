@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart'; // ✅ استيراد Services للحصول على HapticFeedback
 import 'package:image_picker/image_picker.dart'; // ✅ استيراد ImagePicker
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
@@ -10,10 +11,15 @@ import '../screens/bottomnavigationbar_screes/profile_screen.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import 'package:permission_handler/permission_handler.dart'; // ✅ استيراد permission_handler
 import 'dart:io';
+import 'dart:convert';
+import 'dart:math'; // ✅ استيراد math للحصول على دالة sin
+import 'package:road_helperr/services/gemini_service.dart';
+import 'package:road_helperr/data/car_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AiChat extends StatefulWidget {
   static const String routeName = "ai chat";
-  final int _selectedIndex = 2;
 
   const AiChat({super.key});
 
@@ -28,6 +34,7 @@ class _AiChatState extends State<AiChat> {
   final ImagePicker _picker = ImagePicker();
   bool _hasCameraPermission = false;
   String? _tempImagePath;
+  bool _showScrollButton = false;
 
   bool get _showWelcomeMessages => _messages.isEmpty;
 
@@ -35,6 +42,66 @@ class _AiChatState extends State<AiChat> {
   void initState() {
     super.initState();
     _checkAndRequestCameraPermission();
+    _loadMessages(); // استرجاع المحادثات المخزنة
+
+    // إضافة مستمع للتمرير لإظهار/إخفاء زر التمرير لأسفل
+    _scrollController.addListener(_scrollListener);
+  }
+
+  // مستمع التمرير
+  void _scrollListener() {
+    // إذا كان المستخدم قد مرر لأعلى بمقدار 200 بكسل على الأقل، أظهر زر التمرير
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels <
+            _scrollController.position.maxScrollExtent - 200) {
+      if (!_showScrollButton) {
+        setState(() {
+          _showScrollButton = true;
+        });
+      }
+    } else {
+      if (_showScrollButton) {
+        setState(() {
+          _showScrollButton = false;
+        });
+      }
+    }
+  }
+
+  // استرجاع المحادثات المخزنة
+  Future<void> _loadMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final messagesJson = prefs.getString('ai_chat_messages');
+
+      if (messagesJson != null && messagesJson.isNotEmpty) {
+        final List<dynamic> decodedMessages = jsonDecode(messagesJson);
+        final loadedMessages = decodedMessages
+            .map((msgJson) => ChatMessage.fromJson(msgJson))
+            .toList();
+
+        if (mounted) {
+          setState(() {
+            _messages.clear();
+            _messages.addAll(loadedMessages);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading messages: $e');
+    }
+  }
+
+  // حفظ المحادثات
+  Future<void> _saveMessages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final messagesJson =
+          jsonEncode(_messages.map((msg) => msg.toJson()).toList());
+      await prefs.setString('ai_chat_messages', messagesJson);
+    } catch (e) {
+      debugPrint('Error saving messages: $e');
+    }
   }
 
   Future<void> _checkAndRequestCameraPermission() async {
@@ -49,6 +116,7 @@ class _AiChatState extends State<AiChat> {
   @override
   void dispose() {
     _messageController.dispose();
+    _scrollController.removeListener(_scrollListener);
     _scrollController.dispose();
     super.dispose();
   }
@@ -63,7 +131,6 @@ class _AiChatState extends State<AiChat> {
         final isTablet = constraints.maxWidth > 600;
         final isDesktop = constraints.maxWidth > 1200;
         final viewInsets = MediaQuery.of(context).viewInsets;
-        final bottomPadding = MediaQuery.of(context).padding.bottom;
 
         double titleSize = size.width *
             (isDesktop
@@ -94,6 +161,9 @@ class _AiChatState extends State<AiChat> {
           backgroundColor: Theme.of(context).brightness == Brightness.light
               ? Colors.white
               : const Color(0xFF01122A),
+          floatingActionButton:
+              null, // سنستخدم حل مخصص بدلاً من FloatingActionButton
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           appBar: AppBar(
             backgroundColor: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
@@ -122,6 +192,21 @@ class _AiChatState extends State<AiChat> {
               ),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              if (_messages.isNotEmpty)
+                IconButton(
+                  icon: Icon(
+                    platform == TargetPlatform.iOS
+                        ? CupertinoIcons.delete
+                        : Icons.delete_outline,
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.black
+                        : Colors.white,
+                    size: iconSize,
+                  ),
+                  onPressed: _showClearChatConfirmation,
+                ),
+            ],
             elevation: 0,
           ),
           body: SafeArea(
@@ -151,45 +236,159 @@ class _AiChatState extends State<AiChat> {
                         ),
                         SizedBox(height: spacing / 2),
                         Expanded(
-                          child: _showWelcomeMessages
-                              ? const Column(
-                                  children: [
-                                    InfoCard(
-                                      title: "Answer of your questions",
-                                      subtitle:
-                                          "( Just ask me anything you like )",
-                                      isUserMessage: false,
-                                      isWelcomeMessage: true,
+                          child: Stack(
+                            children: [
+                              _showWelcomeMessages
+                                  ? const Column(
+                                      children: [
+                                        InfoCard(
+                                          title: "Answer of your questions",
+                                          subtitle:
+                                              "( Just ask me anything you like )",
+                                          isUserMessage: false,
+                                          isWelcomeMessage: true,
+                                        ),
+                                        SizedBox(height: 8),
+                                        InfoCard(
+                                          title: "Available for you all day",
+                                          subtitle:
+                                              "( Feel free to ask me anytime )",
+                                          isUserMessage: false,
+                                          isWelcomeMessage: true,
+                                        ),
+                                      ],
+                                    )
+                                  : ListView.builder(
+                                      controller: _scrollController,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message = _messages[index];
+                                        return Padding(
+                                          padding: EdgeInsets.only(
+                                              bottom: spacing * 0.3),
+                                          child: InfoCard(
+                                            title: message.message,
+                                            subtitle: message.details,
+                                            isUserMessage:
+                                                message.isUserMessage,
+                                            imagePath: message.imagePath,
+                                            timestamp: message.timestamp,
+                                            isWelcomeMessage: false,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                    SizedBox(height: 8),
-                                    InfoCard(
-                                      title: "Available for you all day",
-                                      subtitle:
-                                          "( Feel free to ask me anytime )",
-                                      isUserMessage: false,
-                                      isWelcomeMessage: true,
-                                    ),
-                                  ],
-                                )
-                              : ListView.builder(
-                                  controller: _scrollController,
-                                  itemCount: _messages.length,
-                                  itemBuilder: (context, index) {
-                                    final message = _messages[index];
-                                    return Padding(
-                                      padding: EdgeInsets.only(
-                                          bottom: spacing * 0.3),
-                                      child: InfoCard(
-                                        title: message.message,
-                                        subtitle: message.details,
-                                        isUserMessage: message.isUserMessage,
-                                        imagePath: message.imagePath,
-                                        timestamp: message.timestamp,
-                                        isWelcomeMessage: false,
-                                      ),
-                                    );
-                                  },
+                              // زر التمرير المخصص مع تأثير حركي
+                              if (_showScrollButton && !_showWelcomeMessages)
+                                Positioned(
+                                  right: 16,
+                                  bottom: 120, // موضع أعلى من السابق
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween<double>(begin: 0.0, end: 1.0),
+                                    duration: const Duration(milliseconds: 300),
+                                    builder: (context, value, child) {
+                                      return Transform.scale(
+                                        scale: 0.8 + (0.2 * value),
+                                        child: AnimatedOpacity(
+                                          opacity: value,
+                                          duration:
+                                              const Duration(milliseconds: 200),
+                                          child: TweenAnimationBuilder<double>(
+                                            tween: Tween<double>(
+                                                begin: 0.0, end: 1.0),
+                                            duration: const Duration(
+                                                milliseconds: 1500),
+                                            curve: Curves.easeInOut,
+                                            builder: (context, pulseValue, _) {
+                                              // تأثير نبض للزر
+                                              return Transform.translate(
+                                                offset: Offset(
+                                                    0,
+                                                    sin(pulseValue *
+                                                            3 *
+                                                            3.14159) *
+                                                        3),
+                                                child: Container(
+                                                  height: 55,
+                                                  width: 55,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: [
+                                                        Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.light
+                                                            ? const Color(
+                                                                0xFF1565C0) // أزرق داكن
+                                                            : const Color(
+                                                                0xFF4FC3F7), // أزرق فاتح
+                                                        Theme.of(context)
+                                                                    .brightness ==
+                                                                Brightness.light
+                                                            ? const Color(
+                                                                0xFF0D47A1) // أزرق داكن جداً
+                                                            : const Color(
+                                                                0xFF2196F3), // أزرق متوسط
+                                                      ],
+                                                    ),
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: (Theme.of(context)
+                                                                        .brightness ==
+                                                                    Brightness
+                                                                        .light
+                                                                ? Colors
+                                                                    .blue[700]
+                                                                : Colors.blue[
+                                                                    300]) ??
+                                                            Colors.blue,
+                                                        blurRadius: 10,
+                                                        spreadRadius: 2,
+                                                        offset:
+                                                            const Offset(0, 3),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      customBorder:
+                                                          const CircleBorder(),
+                                                      onTap: () {
+                                                        _scrollToBottom();
+                                                        // تأثير اهتزاز بسيط عند النقر
+                                                        HapticFeedback
+                                                            .mediumImpact();
+                                                      },
+                                                      child: Center(
+                                                        child: Icon(
+                                                          platform ==
+                                                                  TargetPlatform
+                                                                      .iOS
+                                                              ? CupertinoIcons
+                                                                  .arrow_down_circle_fill
+                                                              : Icons
+                                                                  .keyboard_double_arrow_down,
+                                                          color: Colors.white,
+                                                          size: 30,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -388,31 +587,133 @@ class _AiChatState extends State<AiChat> {
     );
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
-    if (message.isNotEmpty || _tempImagePath != null) {
+    if (message.isEmpty && _tempImagePath == null) return;
+
+    final userMessage = message;
+    final userImagePath = _tempImagePath;
+
+    // إضافة رسالة المستخدم
+    setState(() {
+      _messages.add(ChatMessage(
+        message: userMessage,
+        details: "",
+        isUserMessage: true,
+        imagePath: userImagePath,
+        timestamp: DateTime.now(),
+      ));
+
+      // إضافة رسالة "جاري التحميل" مؤقتة
+      _messages.add(ChatMessage(
+        message: "جاري التفكير...",
+        details: "",
+        isUserMessage: false,
+        timestamp: DateTime.now(),
+      ));
+
+      _messageController.clear();
+      _tempImagePath = null;
+    });
+
+    // حفظ المحادثات بعد إضافة رسالة المستخدم
+    // لا نحفظ رسالة "جاري التحميل" لأنها ستتم إزالتها لاحقًا
+    final tempMessages = List<ChatMessage>.from(_messages);
+    tempMessages.removeLast(); // إزالة رسالة "جاري التحميل"
+    final prefs = await SharedPreferences.getInstance();
+    final messagesJson =
+        jsonEncode(tempMessages.map((msg) => msg.toJson()).toList());
+    await prefs.setString('ai_chat_messages', messagesJson);
+
+    // التمرير إلى أسفل الشاشة
+    _scrollToBottom();
+
+    // إعداد سياق النظام والتنسيق
+    const systemPrompt =
+        'أنت مساعد ذكي متخصص في مساعدة سائقي السيارات. استخدم بيانات السيارات المتوفرة وخبرتك لتقديم نصائح دقيقة حول المواصفات، الأداء، القيمة، المشاكل الشائعة، الصيانة، والإصلاحات الطارئة للسيارات. يمكنك تحليل الصور المرفقة للسيارات أو قطع الغيار وتقديم معلومات عنها. أجب على جميع الأسئلة المتعلقة بالسيارات وقيادتها وصيانتها وإصلاحها، حتى في حالات الطوارئ على الطريق. قدم حلولاً عملية للمشاكل التي قد تواجه السائقين. أجب بنفس لغة السؤال.';
+
+    const responseFormat =
+        'قدم إجابات عملية ومفيدة. إذا كانت هناك صورة، قم بتحليلها وتقديم معلومات عن السيارة أو القطعة الظاهرة فيها. إذا كان السؤال عن مشكلة في السيارة، قدم حلولاً عملية يمكن تنفيذها.';
+
+    String? response;
+
+    try {
+      // تحويل رسائل الدردشة إلى تنسيق Gemini (باستثناء رسالة "جاري التحميل")
+      final List<GeminiChatMessage> chatHistory = _messages
+          .where((msg) => msg.message != "جاري التفكير...")
+          .map((msg) => GeminiChatMessage(
+                text: msg.message,
+                isUser: msg.isUserMessage,
+              ))
+          .toList();
+
+      if (userImagePath != null) {
+        // إرسال استعلام مع صورة
+        response = await GeminiService.sendImageQuery(
+          data: carData,
+          userQuery: userMessage.isEmpty
+              ? 'ما هذه الصورة؟ قدم لي معلومات عنها.'
+              : userMessage,
+          imageFile: File(userImagePath),
+          chatHistory: chatHistory,
+          systemContext: systemPrompt,
+          responseFormat: responseFormat,
+        );
+      } else {
+        // إرسال استعلام نصي فقط
+        response = await GeminiService.sendQuery(
+          data: carData,
+          userQuery: userMessage,
+          chatHistory: chatHistory,
+          systemContext: systemPrompt,
+          responseFormat: responseFormat,
+        );
+      }
+
+      if (response == null || response.isEmpty) {
+        response =
+            'عذراً، لم أتمكن من الحصول على إجابة. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
+      }
+    } catch (e) {
+      debugPrint('Error sending message: $e');
+      response = 'عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.';
+    }
+
+    // تأخير بسيط لتجنب مشاكل تحديث واجهة المستخدم
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (mounted) {
       setState(() {
+        // إزالة رسالة "جاري التحميل"
+        _messages.removeLast();
+
+        // إضافة رد المساعد
         _messages.add(ChatMessage(
-          message: message,
+          message: response!,
           details: "",
-          isUserMessage: true,
-          imagePath: _tempImagePath,
+          isUserMessage: false,
           timestamp: DateTime.now(),
         ));
-        _messageController.clear();
-        _tempImagePath = null;
       });
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      // حفظ المحادثات بعد إضافة رسالة جديدة
+      _saveMessages();
+
+      // التمرير إلى أسفل الشاشة
+      _scrollToBottom();
     }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _handleNavigation(BuildContext context, int index) {
@@ -452,15 +753,84 @@ class _AiChatState extends State<AiChat> {
         imageQuality: 70,
         maxWidth: 1000,
       );
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() {
           _tempImagePath = pickedFile.path;
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error capturing image")),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error capturing image")),
+        );
+      }
+    }
+  }
+
+  // عرض مربع حوار تأكيد مسح المحادثات
+  void _showClearChatConfirmation() {
+    final platform = Theme.of(context).platform;
+
+    if (platform == TargetPlatform.iOS) {
+      showCupertinoDialog(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('مسح المحادثة'),
+          content: const Text('هل أنت متأكد من رغبتك في مسح جميع المحادثات؟'),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('إلغاء'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              child: const Text('مسح'),
+              onPressed: () {
+                Navigator.pop(context);
+                _clearChat();
+              },
+            ),
+          ],
+        ),
       );
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('مسح المحادثة'),
+          content: const Text('هل أنت متأكد من رغبتك في مسح جميع المحادثات؟'),
+          actions: [
+            TextButton(
+              child: const Text('إلغاء'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: const Text(
+                'مسح',
+                style: TextStyle(color: Colors.red),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                _clearChat();
+              },
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // مسح المحادثات
+  Future<void> _clearChat() async {
+    setState(() {
+      _messages.clear();
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('ai_chat_messages');
+    } catch (e) {
+      debugPrint('Error clearing chat: $e');
     }
   }
 }
@@ -479,6 +849,28 @@ class ChatMessage {
     this.imagePath,
     required this.timestamp,
   });
+
+  // تحويل الرسالة إلى Map لتخزينها
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'details': details,
+      'isUserMessage': isUserMessage,
+      'imagePath': imagePath,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+
+  // إنشاء رسالة من Map
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      message: json['message'],
+      details: json['details'],
+      isUserMessage: json['isUserMessage'],
+      imagePath: json['imagePath'],
+      timestamp: DateTime.parse(json['timestamp']),
+    );
+  }
 }
 
 class InfoCard extends StatelessWidget {
@@ -572,24 +964,56 @@ class InfoCard extends StatelessWidget {
                       if (title.isNotEmpty) const SizedBox(height: 8),
                     ],
                     if (title.isNotEmpty)
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isUserMessage
-                              ? Colors.white
-                              : (isLightMode ? Colors.black : Colors.white),
+                      MarkdownBody(
+                        data: title,
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(
+                            fontSize: 16,
+                            color: isUserMessage
+                                ? Colors.white
+                                : (isLightMode ? Colors.black : Colors.white),
+                          ),
+                          strong: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isUserMessage
+                                ? Colors.white
+                                : (isLightMode ? Colors.black : Colors.white),
+                          ),
+                          em: TextStyle(
+                            fontSize: 16,
+                            fontStyle: FontStyle.italic,
+                            color: isUserMessage
+                                ? Colors.white
+                                : (isLightMode ? Colors.black : Colors.white),
+                          ),
+                          code: TextStyle(
+                            fontSize: 14,
+                            backgroundColor: isUserMessage
+                                ? Colors.white.withOpacity(0.2)
+                                : (isLightMode
+                                    ? Colors.grey[200]
+                                    : Colors.black45),
+                            color: isUserMessage
+                                ? Colors.white
+                                : (isLightMode ? Colors.black : Colors.white),
+                            fontFamily: 'monospace',
+                          ),
                         ),
                       ),
                     if (subtitle.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isUserMessage
-                              ? Colors.white.withOpacity(0.7)
-                              : (isLightMode ? Colors.black54 : Colors.white70),
+                      MarkdownBody(
+                        data: subtitle,
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(
+                            fontSize: 14,
+                            color: isUserMessage
+                                ? Colors.white.withOpacity(0.7)
+                                : (isLightMode
+                                    ? Colors.black54
+                                    : Colors.white70),
+                          ),
                         ),
                       ),
                     ],

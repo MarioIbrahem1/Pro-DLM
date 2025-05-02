@@ -1,9 +1,14 @@
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:road_helperr/models/help_request.dart';
+import 'package:road_helperr/services/api_service.dart';
+import 'package:road_helperr/services/help_request_service.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/map_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
+import 'package:road_helperr/ui/widgets/help_request_dialog.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import '../../../utils/app_colors.dart';
 import 'home_screen.dart';
@@ -19,6 +24,93 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   int _selectedIndex = 3; // Removed const since we need to update it
+
+  final HelpRequestService _helpRequestService = HelpRequestService();
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  // Cargar notificaciones
+  Future<void> _loadNotifications() async {
+    try {
+      final notifications =
+          await _helpRequestService.getHelpRequestNotifications();
+
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading notifications: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Limpiar todas las notificaciones
+  Future<void> _clearAllNotifications() async {
+    try {
+      await _helpRequestService.clearAllNotifications();
+
+      if (mounted) {
+        setState(() {
+          _notifications = [];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error clearing notifications: $e');
+    }
+  }
+
+  // Eliminar una notificación específica
+  Future<void> _removeNotification(String notificationId) async {
+    try {
+      await _helpRequestService.removeNotification(notificationId);
+
+      if (mounted) {
+        setState(() {
+          _notifications.removeWhere((notification) {
+            final data = notification['data'] as Map<String, dynamic>;
+            return data['requestId'] == notificationId;
+          });
+        });
+      }
+    } catch (e) {
+      debugPrint('Error removing notification: $e');
+    }
+  }
+
+  // Mostrar diálogo de solicitud de ayuda
+  Future<void> _showHelpRequestDialog(
+      Map<String, dynamic> notificationData) async {
+    try {
+      final data = notificationData['data'] as Map<String, dynamic>;
+
+      // Convertir los datos a un objeto HelpRequest
+      final request = HelpRequest.fromJson(data);
+
+      // Mostrar el diálogo
+      final result =
+          await _helpRequestService.showHelpRequestDialog(context, request);
+
+      // Si el usuario respondió a la solicitud, eliminar la notificación
+      if (result != null) {
+        await _removeNotification(request.requestId);
+      }
+    } catch (e) {
+      debugPrint('Error showing help request dialog: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +192,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: _clearAllNotifications,
             child: Text(
               TextStrings.clear,
               style: TextStyle(
@@ -171,7 +263,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
               fontFamily: '.SF Pro Text',
             ),
           ),
-          onPressed: () {},
+          onPressed: _clearAllNotifications,
         ),
       ),
       child: SafeArea(
@@ -206,43 +298,128 @@ class _NotificationScreenState extends State<NotificationScreen> {
           maxWidth: isDesktop ? 800 : 600,
         ),
         padding: EdgeInsets.all(size.width * 0.04),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _notifications.isEmpty
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(height: spacing * 8),
+                      Image.asset(
+                        Theme.of(context).brightness == Brightness.light
+                            ? "assets/images/notification light.png"
+                            : "assets/images/Group 12.png",
+                        width: size.width * (isDesktop ? 0.3 : 0.5),
+                        fit: BoxFit.contain,
+                      ),
+                      SizedBox(height: spacing * 3),
+                      Text(
+                        TextStrings.noNotify,
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? AppColors.getSwitchColor(context)
+                                  : const Color(0xFFA0A0A0),
+                          fontSize: titleSize,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: isIOS ? '.SF Pro Text' : null,
+                        ),
+                      ),
+                      SizedBox(height: spacing * 1.5),
+                      Text(
+                        TextStrings.notifyInbox,
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                                  ? AppColors.getSwitchColor(context)
+                                  : const Color(0xFFA0A0A0),
+                          fontSize: subtitleSize,
+                          fontFamily: isIOS ? '.SF Pro Text' : null,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                    ],
+                  )
+                : ListView.builder(
+                    itemCount: _notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = _notifications[index];
+                      final type = notification['type'] as String;
+                      final data = notification['data'] as Map<String, dynamic>;
+
+                      // Mostrar diferentes tipos de notificaciones
+                      if (type == 'help_request') {
+                        return _buildHelpRequestNotification(
+                          context,
+                          data,
+                          titleSize,
+                          subtitleSize,
+                        );
+                      }
+
+                      // Tipo de notificación desconocido
+                      return const SizedBox.shrink();
+                    },
+                  ),
+      ),
+    );
+  }
+
+  // Construir una notificación de solicitud de ayuda
+  Widget _buildHelpRequestNotification(
+    BuildContext context,
+    Map<String, dynamic> data,
+    double titleSize,
+    double subtitleSize,
+  ) {
+    final request = HelpRequest.fromJson(data);
+    final timestamp = request.timestamp;
+    final timeString =
+        '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
+    final dateString = '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      elevation: 2,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: AppColors.getSwitchColor(context),
+          child: const Icon(Icons.help_outline, color: Colors.white),
+        ),
+        title: Text(
+          'Help Request from ${request.senderName}',
+          style: TextStyle(
+            fontSize: titleSize * 0.8,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: spacing * 8),
-            Image.asset(
-              Theme.of(context).brightness == Brightness.light
-                  ? "assets/images/notification light.png"
-                  : "assets/images/Group 12.png",
-              width: size.width * (isDesktop ? 0.3 : 0.5),
-              fit: BoxFit.contain,
-            ),
-            SizedBox(height: spacing * 3),
+            const SizedBox(height: 4),
+            if (request.message != null && request.message!.isNotEmpty)
+              Text(
+                request.message!,
+                style: TextStyle(fontSize: subtitleSize * 0.9),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            const SizedBox(height: 4),
             Text(
-              TextStrings.noNotify,
+              '$timeString - $dateString',
               style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppColors.getSwitchColor(context)
-                    : const Color(0xFFA0A0A0),
-                fontSize: titleSize,
-                fontWeight: FontWeight.w600,
-                fontFamily: isIOS ? '.SF Pro Text' : null,
+                fontSize: subtitleSize * 0.8,
+                color: Colors.grey,
               ),
             ),
-            SizedBox(height: spacing * 1.5),
-            Text(
-              TextStrings.notifyInbox,
-              style: TextStyle(
-                color: Theme.of(context).brightness == Brightness.light
-                    ? AppColors.getSwitchColor(context)
-                    : const Color(0xFFA0A0A0),
-                fontSize: subtitleSize,
-                fontFamily: isIOS ? '.SF Pro Text' : null,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const Spacer(),
           ],
+        ),
+        trailing: request.status == HelpRequestStatus.pending
+            ? const Icon(Icons.arrow_forward_ios, size: 16)
+            : null,
+        onTap: () => _showHelpRequestDialog(
+          {'type': 'help_request', 'data': data},
         ),
       ),
     );
