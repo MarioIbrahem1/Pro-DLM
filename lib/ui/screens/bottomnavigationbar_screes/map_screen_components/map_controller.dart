@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/places_service.dart';
-import 'package:road_helperr/ui/widgets/user_details_bottom_sheet.dart';
-import 'package:road_helperr/utils/marker_animation.dart';
+import 'package:road_helperr/utils/location_service.dart';
 import 'package:road_helperr/utils/marker_utils.dart';
 import 'package:road_helperr/utils/polyline_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,7 +25,7 @@ class MapController {
   Marker? _nearestPlaceMarker;
 
   // Store previous user locations for animation
-  Map<String, UserLocation> _previousUserLocations = {};
+  final Map<String, UserLocation> _previousUserLocations = {};
 
   // Polylines for routes
   Set<Polyline> _polylines = {};
@@ -53,6 +51,9 @@ class MapController {
 
   // Loading state
   final bool _isLoading = true;
+
+  // Location service
+  final LocationService _locationService = LocationService();
 
   // Getters
   LatLng get currentLocation => _currentLocation;
@@ -137,25 +138,58 @@ class MapController {
   /// Update user location to server
   Future<void> _updateUserLocation() async {
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      debugPrint('Starting to update user location to server...');
+
+      // Check location permission first
+      await _locationService.checkLocationPermission();
+
+      // Get current position using the improved location service
+      Position position = await _locationService.getCurrentPosition();
+
+      // Update current location in the controller
+      _currentLocation = LatLng(position.latitude, position.longitude);
+      onLocationChanged(_currentLocation);
+
+      // Send location update to server
       await ApiService.updateUserLocation(
         latitude: position.latitude,
         longitude: position.longitude,
       );
+      debugPrint('Successfully updated user location to server');
     } catch (e) {
       debugPrint('Error updating user location: $e');
+      if (e is Exception) {
+        debugPrint('Exception details: ${e.toString()}');
+      }
     }
   }
 
   /// Fetch nearby users
   Future<void> _fetchNearbyUsers() async {
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      debugPrint('Starting to fetch nearby users...');
+
+      // Check location permission first
+      await _locationService.checkLocationPermission();
+
+      // Get current position using the improved location service
+      Position position = await _locationService.getCurrentPosition();
+
+      // Update current location in the controller
+      _currentLocation = LatLng(position.latitude, position.longitude);
+      onLocationChanged(_currentLocation);
+
+      // Reduce radius to 1000 meters (1 km) for testing
+      const double searchRadius = 1000; // 1 km radius for testing nearby users
+
+      debugPrint('Fetching users within $searchRadius meters radius');
       List<UserLocation> nearbyUsers = await ApiService.getNearbyUsers(
         latitude: position.latitude,
         longitude: position.longitude,
-        radius: 10000, // 10 km radius
+        radius: searchRadius,
       );
+
+      debugPrint('Found ${nearbyUsers.length} nearby users');
 
       // Create car markers for each user
       Set<Marker> userMarkers = {};

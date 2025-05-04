@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -13,12 +14,23 @@ class ApiService {
   // Get token from shared preferences
   static Future<String> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token') ?? '';
+    final token = prefs.getString('token') ?? '';
+    debugPrint(
+        'Retrieved token: ${token.isNotEmpty ? 'Token exists' : 'Token is empty'}');
+    return token;
   }
 
+  // Check internet connectivity
   static Future<bool> _checkConnectivity() async {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    try {
+      var connectivityResult = await Connectivity().checkConnectivity();
+      bool hasConnection = connectivityResult != ConnectivityResult.none;
+      debugPrint('Internet connection available: $hasConnection');
+      return hasConnection;
+    } catch (e) {
+      debugPrint('Error checking connectivity: $e');
+      return false;
+    }
   }
 
   // Login API
@@ -468,11 +480,26 @@ class ApiService {
     required double longitude,
   }) async {
     try {
+      // Check connectivity first
+      if (!await _checkConnectivity()) {
+        debugPrint('No internet connection when updating location');
+        throw Exception('No internet connection available');
+      }
+
+      // Get token and check if it's valid
+      final token = await _getToken();
+      if (token.isEmpty) {
+        debugPrint('Empty token when updating location');
+        throw Exception('Authentication token is empty');
+      }
+
+      debugPrint('Sending location update to server: $latitude, $longitude');
+
       final response = await http.post(
         Uri.parse('$baseUrl/update-location'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${await _getToken()}',
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
           'latitude': latitude,
@@ -480,10 +507,17 @@ class ApiService {
         }),
       );
 
+      debugPrint('Location update response status: ${response.statusCode}');
+
       if (response.statusCode != 200) {
-        throw Exception('Failed to update location');
+        debugPrint(
+            'Failed to update location. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception('Failed to update location: ${response.statusCode}');
       }
+
+      debugPrint('Location updated successfully');
     } catch (e) {
+      debugPrint('Error updating location: $e');
       throw Exception('Error updating location: $e');
     }
   }
@@ -495,21 +529,69 @@ class ApiService {
     required double radius,
   }) async {
     try {
+      // Check connectivity first
+      if (!await _checkConnectivity()) {
+        debugPrint('No internet connection when fetching nearby users');
+        throw Exception('No internet connection available');
+      }
+
+      // Get token and check if it's valid
+      final token = await _getToken();
+      if (token.isEmpty) {
+        debugPrint('Empty token when fetching nearby users');
+        throw Exception('Authentication token is empty');
+      }
+
+      debugPrint(
+          'Fetching nearby users at: $latitude, $longitude with radius: $radius meters');
+
+      final url =
+          '$baseUrl/nearby-users?latitude=$latitude&longitude=$longitude&radius=$radius';
+      debugPrint('Request URL: $url');
+
       final response = await http.get(
-        Uri.parse(
-            '$baseUrl/nearby-users?latitude=$latitude&longitude=$longitude&radius=$radius'),
+        Uri.parse(url),
         headers: {
-          'Authorization': 'Bearer ${await _getToken()}',
+          'Authorization': 'Bearer $token',
         },
       );
 
+      debugPrint('Nearby users response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => UserLocation.fromJson(json)).toList();
+        final responseBody = response.body;
+        debugPrint('Response body length: ${responseBody.length}');
+
+        if (responseBody.isEmpty) {
+          debugPrint('Empty response body');
+          return [];
+        }
+
+        try {
+          final List<dynamic> data = jsonDecode(responseBody);
+          debugPrint('Found ${data.length} nearby users in response');
+
+          final users =
+              data.map((json) => UserLocation.fromJson(json)).toList();
+
+          // Log each user's details for debugging
+          for (var user in users) {
+            debugPrint(
+                'User: ${user.userName}, Position: ${user.position.latitude}, ${user.position.longitude}');
+          }
+
+          return users;
+        } catch (parseError) {
+          debugPrint('Error parsing nearby users response: $parseError');
+          throw Exception('Failed to parse nearby users response: $parseError');
+        }
       } else {
-        throw Exception('Failed to fetch nearby users');
+        debugPrint(
+            'Failed to fetch nearby users. Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception('Failed to fetch nearby users: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('Error fetching nearby users: $e');
       throw Exception('Error fetching nearby users: $e');
     }
   }

@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:road_helperr/services/profile_service.dart';
 import 'package:road_helperr/models/profile_data.dart';
+import 'package:road_helperr/ui/widgets/profile_image.dart';
 import '../edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -39,8 +40,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
-    _fetchProfileImage();
+    // Load user data first, then fetch profile image
+    _loadUserData().then((_) {
+      if (mounted) {
+        _fetchProfileImage();
+      }
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -85,41 +90,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _fetchProfileImage() async {
     try {
-      if (email.isNotEmpty) {
-        final imageUrl = await _profileService.getProfileImage(email);
-        if (mounted && imageUrl.isNotEmpty) {
-          setState(() {
-            if (_profileData != null) {
-              _profileData = ProfileData(
-                name: _profileData!.name,
-                email: _profileData!.email,
-                phone: _profileData!.phone,
-                address: _profileData!.address,
-                profileImage: imageUrl,
-                carModel: _profileData!.carModel,
-                carColor: _profileData!.carColor,
-                plateNumber: _profileData!.plateNumber,
-              );
-            } else {
-              _profileData = ProfileData(
-                name: name,
-                email: email,
-                profileImage: imageUrl,
-              );
-            }
-          });
+      // Make sure we have a valid email before trying to fetch the image
+      if (email.isEmpty) {
+        print('Email is empty, trying to get it from SharedPreferences');
+        final prefs = await SharedPreferences.getInstance();
+        final userEmail = prefs.getString('logged_in_email');
+        if (userEmail != null && userEmail.isNotEmpty) {
+          email = userEmail;
+          print('Retrieved email from SharedPreferences: $email');
+        } else {
+          print('Could not retrieve email from SharedPreferences');
+          return; // Exit if we still don't have an email
         }
       }
+
+      // Clear image cache before fetching to ensure we get the latest image
+      imageCache.clear();
+      imageCache.clearLiveImages();
+
+      print('Fetching profile image for email: $email');
+
+      // Get the image URL from the API using the updated method
+      // This will try multiple approaches to get the image
+      String imageUrl = await _profileService.getProfileImage(email);
+      print('Fetched profile image URL: $imageUrl');
+
+      // If we couldn't get a URL from the API, show a message
+      if (imageUrl.isEmpty) {
+        print('Empty image URL returned from API');
+
+        // If we couldn't get the image, retry after a delay (but only once)
+        if (mounted && !_hasRetried) {
+          _hasRetried = true;
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              _fetchProfileImage();
+            }
+          });
+        } else if (mounted) {
+          // Show error message if retry also failed
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text(
+                    'Could not load profile image. Please try again later.')),
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
+        // Validate the URL format
+        if (!imageUrl.startsWith('http')) {
+          print('Invalid image URL format: $imageUrl');
+          // Try to fix the URL
+          if (imageUrl.startsWith('/')) {
+            imageUrl = 'http://81.10.91.96:8132$imageUrl';
+          } else {
+            imageUrl = 'http://81.10.91.96:8132/$imageUrl';
+          }
+          print('Fixed image URL: $imageUrl');
+        }
+
+        // Add cache-busting parameter if not already present
+        if (!imageUrl.contains('?')) {
+          imageUrl = '$imageUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+        } else if (!imageUrl.contains('t=')) {
+          imageUrl = '$imageUrl&t=${DateTime.now().millisecondsSinceEpoch}';
+        }
+
+        setState(() {
+          if (_profileData != null) {
+            _profileData = ProfileData(
+              name: _profileData!.name,
+              email: _profileData!.email,
+              phone: _profileData!.phone,
+              address: _profileData!.address,
+              profileImage: imageUrl,
+              carModel: _profileData!.carModel,
+              carColor: _profileData!.carColor,
+              plateNumber: _profileData!.plateNumber,
+            );
+          } else {
+            _profileData = ProfileData(
+              name: name,
+              email: email,
+              profileImage: imageUrl,
+            );
+          }
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile image loaded successfully')),
+        );
+      }
     } catch (e) {
-      // ignore error, fallback to default
+      print('Error in _fetchProfileImage: $e');
+      // Show error in UI for debugging
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading profile image: $e')),
+        );
+      }
     }
   }
 
-  void _changeLanguage(String? newValue) {
-    setState(() {
-      selectedLanguage = newValue!;
-    });
-  }
+  bool _hasRetried = false; // Track if we've retried fetching the image
 
   void _logout(BuildContext context) {
     Navigator.pushReplacementNamed(context, SignInScreen.routeName);
@@ -366,6 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onSelected: (String value) {
           setState(() {
             selectedLanguage = value;
+            // Here you would implement actual language change logic
           });
         },
         itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -404,19 +481,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Stack(
       alignment: Alignment.center,
       children: [
-        CircleAvatar(
-          radius: 65,
+        ProfileImageWidget(
+          email: email,
+          size: 130,
           backgroundColor: Theme.of(context).brightness == Brightness.light
               ? const Color(0xFF86A5D9)
               : Colors.white,
-          backgroundImage: (_profileData?.profileImage != null &&
-                  _profileData!.profileImage!.isNotEmpty)
-              ? NetworkImage(_profileData!.profileImage!)
-              : null,
-          child: (_profileData?.profileImage == null ||
-                  _profileData!.profileImage!.isEmpty)
-              ? const Icon(Icons.person, size: 65, color: Colors.white)
-              : null,
+          iconColor: Colors.white,
+          onTap: () {
+            // Allow manual retry on tap if there's an error
+            _fetchProfileImage();
+          },
         ),
         Positioned(
           bottom: 8,
@@ -449,16 +524,101 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAndUploadImage() async {
     try {
+      // Show a dialog to choose between camera and gallery
+      final source = await showDialog<ImageSource>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Select Image Source'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Camera'),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('Gallery'),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      if (source == null) {
+        return; // User canceled the dialog
+      }
+
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await picker.pickImage(
+        source: source,
+        imageQuality: 80, // Reduce image quality to improve upload speed
+        maxWidth: 800, // Limit image width to reduce file size
+      );
+
       if (image != null) {
         setState(() {
           isLoading = true;
         });
+
         final File imageFile = File(image.path);
+        print('Selected image path: ${image.path}');
+        print('Image file size: ${await imageFile.length()} bytes');
+
+        // Check if email is available
+        if (email.isEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          final userEmail = prefs.getString('logged_in_email');
+          if (userEmail != null && userEmail.isNotEmpty) {
+            email = userEmail;
+            print('Retrieved email from SharedPreferences: $email');
+          } else {
+            if (mounted) {
+              setState(() {
+                isLoading = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content:
+                        Text('User email not found. Please log in again.')),
+              );
+            }
+            return;
+          }
+        }
+
+        // Show uploading progress
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Uploading image...')),
+          );
+        }
+
+        // Upload the image
         final String imageUrl =
             await _profileService.uploadProfileImage(email, imageFile);
+        print('Uploaded image URL: $imageUrl');
+
         if (mounted) {
+          if (imageUrl.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('Failed to upload image. Please try again.')),
+            );
+            setState(() {
+              isLoading = false;
+            });
+            return;
+          }
+
+          // Clear image cache
+          imageCache.clear();
+          imageCache.clearLiveImages();
+
           setState(() {
             if (_profileData != null) {
               _profileData = ProfileData(
@@ -480,9 +640,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }
             isLoading = false;
           });
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile image updated successfully')),
+          );
+
+          // Force refresh of the profile image widget
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _fetchProfileImage();
+            }
+          });
         }
       }
     } catch (e) {
+      print('Error in _pickAndUploadImage: $e');
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -492,8 +665,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
-    // بعد الرفع، هات الصورة من السيرفر تاني
-    await _fetchProfileImage();
+
+    // No need to fetch the image again, the ProfileImageWidget will handle it
   }
 
   void _handleNavigation(BuildContext context, int index) {

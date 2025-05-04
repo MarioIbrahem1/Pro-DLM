@@ -13,10 +13,10 @@ class UserDetailsBottomSheet extends StatefulWidget {
   final LatLng currentUserLocation;
 
   const UserDetailsBottomSheet({
-    Key? key,
+    super.key,
     required this.user,
     required this.currentUserLocation,
-  }) : super(key: key);
+  });
 
   static Future<void> show(
     BuildContext context,

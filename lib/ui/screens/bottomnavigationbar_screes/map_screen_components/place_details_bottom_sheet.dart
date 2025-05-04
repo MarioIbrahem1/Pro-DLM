@@ -7,9 +7,9 @@ class PlaceDetailsBottomSheet extends StatelessWidget {
   final Map<String, dynamic> details;
 
   const PlaceDetailsBottomSheet({
-    Key? key,
+    super.key,
     required this.details,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +158,7 @@ class PlaceDetailsBottomSheet extends StatelessWidget {
         }),
         const SizedBox(width: 8),
         Text(
-          '${rating.toStringAsFixed(1)}',
+          rating.toStringAsFixed(1),
           style: TextStyle(
             fontSize: 16,
             color: AppColors.getLabelTextField(context).withOpacity(0.8),

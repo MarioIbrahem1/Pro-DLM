@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/models/user_rating.dart';
 import 'package:road_helperr/services/api_service.dart';
-import 'package:road_helperr/utils/app_colors.dart';
 import 'package:intl/intl.dart';
 
 class UserRatingsBottomSheet extends StatefulWidget {
   final UserLocation user;
 
   const UserRatingsBottomSheet({
-    Key? key,
+    super.key,
     required this.user,
-  }) : super(key: key);
+  });
 
   static Future<void> show(BuildContext context, UserLocation user) {
     return showModalBottomSheet(

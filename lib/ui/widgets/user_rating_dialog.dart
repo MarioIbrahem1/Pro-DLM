@@ -8,9 +8,9 @@ class UserRatingDialog extends StatefulWidget {
   final UserLocation user;
 
   const UserRatingDialog({
-    Key? key,
+    super.key,
     required this.user,
-  }) : super(key: key);
+  });
 
   static Future<bool?> show(BuildContext context, UserLocation user) async {
     return await showDialog<bool>(

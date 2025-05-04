@@ -1,14 +1,11 @@
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/models/help_request.dart';
-import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/help_request_service.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/map_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_screen.dart';
-import 'package:road_helperr/ui/widgets/help_request_dialog.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import '../../../utils/app_colors.dart';
 import 'home_screen.dart';
@@ -253,6 +250,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         trailing: CupertinoButton(
           padding: EdgeInsets.zero,
+          onPressed: _clearAllNotifications,
           child: Text(
             TextStrings.clear,
             style: TextStyle(
@@ -263,7 +261,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
               fontFamily: '.SF Pro Text',
             ),
           ),
-          onPressed: _clearAllNotifications,
         ),
       ),
       child: SafeArea(

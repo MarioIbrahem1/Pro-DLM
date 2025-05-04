@@ -12,6 +12,8 @@ import 'package:road_helperr/utils/text_strings.dart';
 import 'notification_screen.dart';
 import 'package:road_helperr/services/notification_service.dart';
 import 'package:road_helperr/services/places_service.dart';
+import 'package:road_helperr/ui/widgets/profile_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,11 +41,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int selectedServicesCount = 0;
   String location = "Fetching location...";
+  String userEmail = ""; // متغير لتخزين البريد الإلكتروني للمستخدم
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _getUserEmail(); // استدعاء دالة للحصول على البريد الإلكتروني للمستخدم
+  }
+
+  // دالة للحصول على البريد الإلكتروني للمستخدم من التخزين المحلي
+  Future<void> _getUserEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString('logged_in_email');
+      if (email != null && email.isNotEmpty) {
+        setState(() {
+          userEmail = email;
+        });
+      }
+    } catch (e) {
+      // تجاهل الأخطاء
+    }
   }
 
   void toggleFilter(String key, bool value) {
@@ -400,10 +419,26 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           Padding(
             padding: EdgeInsets.all(padding),
-            child: CircleAvatar(
-              backgroundImage: const AssetImage('assets/images/Ellipse 42.png'),
-              radius: titleSize,
-            ),
+            child: userEmail.isNotEmpty
+                ? ProfileImageWidget(
+                    email: userEmail,
+                    size: titleSize * 2,
+                    backgroundColor:
+                        Theme.of(context).brightness == Brightness.light
+                            ? const Color(0xFF86A5D9)
+                            : Colors.white,
+                    iconColor: Theme.of(context).brightness == Brightness.light
+                        ? const Color(0xFF0F4797)
+                        : Colors.white,
+                    onTap: () {
+                      Navigator.pushNamed(context, ProfileScreen.routeName);
+                    },
+                  )
+                : CircleAvatar(
+                    backgroundImage:
+                        const AssetImage('assets/images/Ellipse 42.png'),
+                    radius: titleSize,
+                  ),
           ),
         ],
       ),
@@ -445,10 +480,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         trailing: Padding(
           padding: EdgeInsets.all(padding),
-          child: CircleAvatar(
-            backgroundImage: const AssetImage('assets/images/Ellipse 42.png'),
-            radius: titleSize,
-          ),
+          child: userEmail.isNotEmpty
+              ? ProfileImageWidget(
+                  email: userEmail,
+                  size: titleSize * 2,
+                  backgroundColor: Colors.white,
+                  iconColor: Colors.white,
+                  onTap: () {
+                    Navigator.pushNamed(context, ProfileScreen.routeName);
+                  },
+                )
+              : CircleAvatar(
+                  backgroundImage:
+                      const AssetImage('assets/images/Ellipse 42.png'),
+                  radius: titleSize,
+                ),
         ),
       ),
       child: SafeArea(

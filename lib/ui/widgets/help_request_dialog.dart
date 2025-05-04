@@ -8,9 +8,9 @@ class HelpRequestDialog extends StatefulWidget {
   final HelpRequest request;
 
   const HelpRequestDialog({
-    Key? key,
+    super.key,
     required this.request,
-  }) : super(key: key);
+  });
 
   static Future<bool?> show(BuildContext context, HelpRequest request) async {
     return await showDialog<bool>(

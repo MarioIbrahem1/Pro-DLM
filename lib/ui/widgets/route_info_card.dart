@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/utils/app_colors.dart';
 
@@ -11,13 +10,13 @@ class RouteInfoCard extends StatelessWidget {
   final VoidCallback onNavigate;
 
   const RouteInfoCard({
-    Key? key,
+    super.key,
     required this.otherUser,
     required this.distance,
     required this.travelTime,
     required this.onClose,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

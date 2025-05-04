@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/models/user_location.dart';
-import 'package:road_helperr/utils/marker_utils.dart';
 
 class MarkerAnimation {
   // Cache for previous positions

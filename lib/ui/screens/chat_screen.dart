@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:road_helperr/models/chat_message.dart';
 import 'package:road_helperr/models/user_location.dart';
 import 'package:road_helperr/services/chat_service.dart';
-import 'package:road_helperr/utils/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -11,9 +9,9 @@ class ChatScreen extends StatefulWidget {
   final UserLocation otherUser;
 
   const ChatScreen({
-    Key? key,
+    super.key,
     required this.otherUser,
-  }) : super(key: key);
+  });
 
   static const String routeName = "chat";
 
@@ -394,9 +392,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           vertical: 4,
                         ),
                         color: Colors.black.withOpacity(0.5),
-                        child: Text(
+                        child: const Text(
                           'Tap to view on map',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                           ),
