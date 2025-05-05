@@ -8,6 +8,7 @@ import 'package:road_helperr/ui/screens/signupScreen.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/notification_service.dart';
 import 'package:road_helperr/utils/app_colors.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class SignInScreen extends StatefulWidget {
   static const String routeName = "signinscreen";
@@ -54,6 +55,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     final bool isLight = Theme.of(context).brightness == Brightness.light;
     final Size mediaQuery = MediaQuery.of(context).size;
     final Color textColor = isLight ? Colors.black : Colors.white;
@@ -105,7 +107,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          "Welcome Back!",
+                          lang.welcomeBack,
                           style: TextStyle(
                             color: textColor,
                             fontSize: mediaQuery.width * 0.06,
@@ -118,16 +120,16 @@ class _SignInScreenState extends State<SignInScreen> {
                         // Email Input
                         InputField(
                           icon: Icons.email_outlined,
-                          hintText: "Enter your email",
-                          label: "Email",
+                          hintText: lang.enterYourEmail,
+                          label: lang.email,
                           validatorIsContinue: (emailText) {
                             final regExp = RegExp(
                                 r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+");
                             if (emailText == null || emailText.isEmpty) {
-                              return "Please enter your email";
+                              return lang.pleaseEnterYourEmail;
                             }
                             if (!regExp.hasMatch(emailText)) {
-                              return "Please enter a valid email";
+                              return lang.pleaseEnterAValidEmail;
                             }
                             return null;
                           },
@@ -138,15 +140,15 @@ class _SignInScreenState extends State<SignInScreen> {
                         // Password Input
                         InputField(
                           icon: Icons.lock,
-                          hintText: "Enter your password",
-                          label: "Password",
+                          hintText: lang.enterYourPassword,
+                          label: lang.password,
                           isPassword: true,
                           validatorIsContinue: (passwordText) {
                             if (passwordText == null || passwordText.isEmpty) {
-                              return "Please enter your password";
+                              return lang.pleaseEnterYourPassword;
                             }
                             if (passwordText.length < 6) {
-                              return "Password must be at least 6 characters";
+                              return lang.passwordMustBeAtLeast6Characters;
                             }
                             return null;
                           },
@@ -180,7 +182,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                   ),
                                 ),
                                 Text(
-                                  "Remember me",
+                                  lang.rememberMe,
                                   style: TextStyle(
                                     color: textColor,
                                     fontSize: mediaQuery.width * 0.035,
@@ -194,7 +196,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                     .pushNamed(EmailScreen.routeName);
                               },
                               child: Text(
-                                "Forgot Password?",
+                                lang.forgotPassword,
                                 style: TextStyle(
                                   color: textColor,
                                   fontSize: mediaQuery.width * 0.035,
@@ -207,7 +209,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
                         // Login Button
                         MainButton(
-                          textButton: "Login",
+                          textButton: lang.login,
                           onPress: () async {
                             if (_formKey.currentState!.validate()) {
                               try {
@@ -258,7 +260,7 @@ class _SignInScreenState extends State<SignInScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              "Don't have an account? ",
+                              lang.dontHaveAnAccount,
                               style: TextStyle(
                                 color: textColor,
                                 fontSize: mediaQuery.width * 0.035,
@@ -270,7 +272,7 @@ class _SignInScreenState extends State<SignInScreen> {
                                     .pushNamed(SignupScreen.routeName);
                               },
                               child: Text(
-                                "Register",
+                                lang.register,
                                 style: TextStyle(
                                   color: isLight
                                       ? AppColors.getTextStackColor(context)

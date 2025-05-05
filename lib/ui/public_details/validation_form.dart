@@ -9,6 +9,7 @@ import 'package:road_helperr/utils/text_strings.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:provider/provider.dart';
 import 'package:road_helperr/providers/signup_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ValidationForm extends StatefulWidget {
   const ValidationForm({super.key});
@@ -58,6 +59,7 @@ class _ValidationFormState extends State<ValidationForm> {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     double width = MediaQuery.of(context).size.width;
 
     return Padding(
@@ -70,11 +72,11 @@ class _ValidationFormState extends State<ValidationForm> {
             children: [
               INp.InputField(
                 icon: Icons.person,
-                label: "First Name",
-                hintText: 'First name',
+                label: lang.firstName,
+                hintText: lang.firstName,
                 validatorIsContinue: (text) {
                   if (text!.isEmpty || text.length < 3) {
-                    return "At least 3 characters";
+                    return lang.atLeast3Characters;
                   }
                   return null;
                 },
@@ -84,11 +86,11 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 10),
               INp.InputField(
                 icon: Icons.person,
-                label: "Last Name",
-                hintText: 'Last name',
+                label: lang.lastName,
+                hintText: lang.lastName,
                 validatorIsContinue: (text) {
                   if (text!.isEmpty || text.length < 3) {
-                    return "At least 3 characters";
+                    return lang.atLeast3Characters;
                   }
                   return null;
                 },
@@ -98,15 +100,15 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 10),
               INp.InputField(
                 icon: Icons.phone,
-                label: "Phone Number",
-                hintText: 'Phone',
+                label: lang.phoneNumber,
+                hintText: lang.phone,
                 keyboardType: TextInputType.number,
                 controller: phoneController,
                 focusNode: phoneFocusNode,
                 validatorIsContinue: (phoneText) {
                   if (phoneText?.length != 11 ||
                       !RegExp(r'^[0-9]+').hasMatch(phoneText!)) {
-                    return "Must be exactly 11 digits";
+                    return lang.mustBeExactly11Digits;
                   }
                   return null;
                 },
@@ -114,13 +116,13 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 10),
               INp.InputField(
                 icon: Icons.email_outlined,
-                label: "Email",
-                hintText: 'Email',
+                label: lang.email,
+                hintText: lang.email,
                 validatorIsContinue: (emailText) {
                   final regExp = RegExp(
                       r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}");
                   if (!regExp.hasMatch(emailText!)) {
-                    return "Invalid email format";
+                    return lang.invalidEmail;
                   }
                   return null;
                 },
@@ -130,17 +132,17 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 10),
               INp.InputField(
                 icon: Icons.lock,
-                hintText: "Enter your password",
-                label: "Password",
+                hintText: lang.enterYourPassword,
+                label: lang.password,
                 isPassword: true,
                 controller: passwordController,
                 focusNode: passwordFocusNode,
                 validatorIsContinue: (passwordText) {
                   if (passwordText == null || passwordText.isEmpty) {
-                    return "Please enter your password";
+                    return lang.pleaseEnterYourPassword;
                   }
                   if (passwordText.length < 8) {
-                    return "Password must be at least 8 characters";
+                    return lang.passwordMustBeAtLeast8Characters;
                   }
                   return null;
                 },
@@ -148,12 +150,12 @@ class _ValidationFormState extends State<ValidationForm> {
               const SizedBox(height: 10),
               INp.InputField(
                 icon: Icons.lock,
-                label: "Confirm Password",
-                hintText: 'Confirm password',
+                label: lang.confirmPassword,
+                hintText: lang.confirmPassword,
                 isPassword: true,
                 validatorIsContinue: (confirmPasswordText) {
                   if (confirmPasswordText != passwordController.text) {
-                    return "Passwords do not match";
+                    return lang.passwordsDoNotMatch;
                   }
                   return null;
                 },
@@ -162,7 +164,7 @@ class _ValidationFormState extends State<ValidationForm> {
               ),
               const SizedBox(height: 20),
               bum.MainButton(
-                textButton: TextStrings.textButton3,
+                textButton: lang.nextPage,
                 onPress: () async {
                   if (_formKey.currentState!.validate()) {
                     Navigator.push(
@@ -181,10 +183,10 @@ class _ValidationFormState extends State<ValidationForm> {
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('Please fill all fields correctly'),
                         backgroundColor: Colors.red,
-                        duration: Duration(seconds: 3),
+                        duration: const Duration(seconds: 3),
                       ),
                     );
                   }
@@ -196,7 +198,7 @@ class _ValidationFormState extends State<ValidationForm> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    TextStrings.textToSignUp,
+                    lang.alreadyHaveAnAccount,
                     style: TextStyle(
                       color: colo.AppColors.getBorderField(context),
                       fontSize: width * 0.035,
@@ -275,7 +277,7 @@ class _ValidationFormState extends State<ValidationForm> {
                       }
                     },
                     child: Text(
-                      TextStrings.logIn,
+                      lang.login,
                       style: TextStyle(
                         color: colo.AppColors.getSignAndRegister(context),
                         fontSize: width * 0.035,

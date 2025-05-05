@@ -14,6 +14,7 @@ import 'package:road_helperr/services/notification_service.dart';
 import 'package:road_helperr/services/places_service.dart';
 import 'package:road_helperr/ui/widgets/profile_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -217,6 +218,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showWarningDialog(BuildContext context) {
+    final lang = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -224,12 +227,13 @@ class _HomeScreenState extends State<HomeScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text('Warning'),
-          content: const Text('Please select between 1 to 3 services.'),
+          title: Text(lang?.warning ?? 'Warning'),
+          content: Text(lang?.pleaseSelectBetween1To3Services ??
+              'Please select between 1 to 3 services.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+              child: Text(lang?.ok ?? 'OK'),
             ),
           ],
         );
@@ -259,9 +263,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (activeFilters.isEmpty) {
+      final lang = AppLocalizations.of(context);
       NotificationService.showValidationError(
         context,
-        'Please select at least one service!',
+        lang?.pleaseSelectAtLeastOneService ??
+            'Please select at least one service!',
       );
       return;
     }
@@ -304,9 +310,10 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         );
       } else if (mounted) {
+        final lang = AppLocalizations.of(context);
         NotificationService.showValidationError(
           context,
-          'Location not available. Please try again.',
+          lang?.fetchingLocation ?? 'Location not available. Please try again.',
         );
       }
     }
@@ -516,6 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final platform = Theme.of(context).platform;
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+    final lang = AppLocalizations.of(context);
 
     return Padding(
       padding: EdgeInsets.all(padding),
@@ -523,7 +531,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            TextStrings.homeGetYouBack,
+            lang?.getYouBackOnTrack ?? TextStrings.homeGetYouBack,
             style: TextStyle(
               color: Theme.of(context).brightness == Brightness.light
                   ? const Color(0xFF0F4797)
@@ -602,6 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final platform = Theme.of(context).platform;
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+    final lang = AppLocalizations.of(context);
 
     if (isIOS) {
       return SizedBox(
@@ -612,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(8),
           onPressed: () => _navigateToMap(context),
           child: Text(
-            TextStrings.homeGetYourService,
+            lang?.getYourServices ?? TextStrings.homeGetYourService,
             style: TextStyle(
               color: Colors.white,
               fontSize: titleSize,
@@ -635,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         onPressed: () => _navigateToMap(context),
         child: Text(
-          TextStrings.homeGetYourService,
+          lang?.getYourServices ?? TextStrings.homeGetYourService,
           style: TextStyle(
             color: Colors.white,
             fontSize: titleSize,
@@ -762,11 +771,37 @@ class ServiceCard extends StatelessWidget {
     required this.fontSize,
   });
 
+  String _getTranslatedTitle(BuildContext context, String title) {
+    final lang = AppLocalizations.of(context);
+
+    if (lang == null) return title;
+
+    switch (title) {
+      case TextStrings.homeGas:
+        return lang.gasStation;
+      case TextStrings.homePolice:
+        return lang.policeDepartment;
+      case TextStrings.homeFire:
+        return lang.fireExtinguisher;
+      case TextStrings.homeHospital:
+        return lang.hospital;
+      case TextStrings.homeMaintenance:
+        return lang.maintenanceCenter;
+      case TextStrings.homeWinch:
+        return lang.winch;
+      default:
+        return title;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+    // Get translated title
+    final translatedTitle = _getTranslatedTitle(context, title);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -859,7 +894,7 @@ class ServiceCard extends StatelessWidget {
                       ),
                       SizedBox(height: padding / 2),
                       Text(
-                        title,
+                        translatedTitle,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

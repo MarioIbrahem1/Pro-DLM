@@ -1,6 +1,8 @@
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
+import 'package:road_helperr/providers/settings_provider.dart';
 import 'package:road_helperr/ui/screens/ai_welcome_screen.dart';
 import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/map_screen.dart';
 import '../../../utils/app_colors.dart';
@@ -16,6 +18,7 @@ import 'package:road_helperr/services/profile_service.dart';
 import 'package:road_helperr/models/profile_data.dart';
 import 'package:road_helperr/ui/widgets/profile_image.dart';
 import '../edit_profile_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
   static const String routeName = "profscreen";
@@ -222,6 +225,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final lang = AppLocalizations.of(context);
+
+    // Update selectedLanguage based on the current locale
+    selectedLanguage =
+        settingsProvider.currentLocale == 'en' ? "English" : "العربية";
+
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.light
           ? Colors.white
@@ -249,7 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: Padding(
             padding: const EdgeInsets.only(top: 25.0),
             child: Text(
-              'profile',
+              lang?.profile ?? 'Profile',
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.light
                     ? Colors.black
@@ -324,7 +334,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               _buildListTile(
                                 icon: Icons.edit_outlined,
-                                title: "Edit Profile",
+                                title:
+                                    AppLocalizations.of(context)?.editProfile ??
+                                        "Edit Profile",
                                 onTap: _navigateToEditProfile,
                               ),
                               const SizedBox(height: 5),
@@ -334,7 +346,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 5),
                               _buildListTile(
                                 icon: Icons.info_outline,
-                                title: "About",
+                                title: AppLocalizations.of(context)?.about ??
+                                    "About",
                                 onTap: () {
                                   Navigator.of(context)
                                       .pushNamed(AboutScreen.routeName);
@@ -343,7 +356,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 5),
                               _buildListTile(
                                 icon: Icons.logout,
-                                title: "Logout",
+                                title: AppLocalizations.of(context)?.logout ??
+                                    "Logout",
                                 onTap: () => _logout(context),
                               ),
                               const SizedBox(height: 20),
@@ -412,9 +426,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLanguageSelector() {
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+    final lang = AppLocalizations.of(context);
+
     return _buildListTile(
       icon: Icons.language,
-      title: "Language",
+      title: lang?.language ?? "Language",
       trailing: PopupMenuButton<String>(
         icon: Row(
           mainAxisSize: MainAxisSize.min,
@@ -442,22 +459,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onSelected: (String value) {
           setState(() {
             selectedLanguage = value;
-            // Here you would implement actual language change logic
+            // Change the app locale using the SettingsProvider
+            if (value == "English") {
+              settingsProvider.changeLocale('en');
+            } else {
+              settingsProvider.changeLocale('ar');
+            }
           });
         },
         itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: "English",
             child: Text(
-              'English',
-              style: TextStyle(color: Colors.white),
+              lang?.english ?? 'English',
+              style: const TextStyle(color: Colors.white),
             ),
           ),
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: "العربية",
             child: Text(
-              'العربية',
-              style: TextStyle(color: Colors.white),
+              lang?.arabic ?? 'العربية',
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -467,11 +489,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildThemeSelector() {
+    final lang = AppLocalizations.of(context);
     return _buildListTile(
       icon: Theme.of(context).platform == TargetPlatform.iOS
           ? CupertinoIcons.paintbrush
           : Icons.palette_outlined,
-      title: "Theme",
+      title: lang?.darkMode ?? "Theme",
       trailing: const ThemeSwitch(),
       onTap: () {},
     );

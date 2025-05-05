@@ -6,6 +6,7 @@ import 'constants.dart';
 import 'package:road_helperr/ui/screens/OTPscreen.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/notification_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EmailScreen extends StatefulWidget {
   static const String routeName = "emailscreen";
@@ -54,11 +55,12 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Future<void> _validateAndNavigate() async {
+    var lang = AppLocalizations.of(context)!;
     if (_emailController.text.isEmpty) {
       NotificationService.showError(
         context: context,
         title: 'Error',
-        message: 'Please enter your email',
+        message: lang.pleaseEnterYourEmail,
       );
       return;
     }
@@ -67,7 +69,7 @@ class _EmailScreenState extends State<EmailScreen>
       NotificationService.showError(
         context: context,
         title: 'Error',
-        message: 'Please enter a valid email',
+        message: lang.pleaseEnterAValidEmail,
       );
       return;
     }
@@ -220,6 +222,7 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Widget _buildHeaderTexts(Size size, bool isLightMode) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       margin: EdgeInsets.symmetric(vertical: size.height * 0.03),
       child: Column(
@@ -227,7 +230,7 @@ class _EmailScreenState extends State<EmailScreen>
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              'OTP Verification',
+              lang.otpVerification,
               style: TextStyle(
                 color: isLightMode ? Colors.black : AppColors.white,
                 fontSize: min(size.width * 0.06, 24),
@@ -239,7 +242,7 @@ class _EmailScreenState extends State<EmailScreen>
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              'We will send you an One Time Password\non your email address',
+              lang.weWillSendYouAnOneTimePasswordOnYourEmailAddress,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: isLightMode
@@ -255,6 +258,7 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Widget _buildEmailInput(Size size, bool isIOS, bool isLightMode) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
       margin: EdgeInsets.only(top: size.height * 0.01),
@@ -274,7 +278,7 @@ class _EmailScreenState extends State<EmailScreen>
                 color: isLightMode ? Colors.black : AppColors.white,
                 fontSize: min(size.width * 0.04, 16),
               ),
-              placeholder: 'Enter your email',
+              placeholder: lang.enterYourEmail,
               placeholderStyle: TextStyle(
                 color: isLightMode
                     ? Colors.black.withOpacity(0.5)
@@ -298,7 +302,7 @@ class _EmailScreenState extends State<EmailScreen>
                 fontSize: min(size.width * 0.04, 16),
               ),
               decoration: InputDecoration(
-                hintText: 'Enter your email',
+                hintText: lang.enterYourEmail,
                 hintStyle: TextStyle(
                   color: isLightMode
                       ? Colors.black.withOpacity(0.5)
@@ -314,10 +318,10 @@ class _EmailScreenState extends State<EmailScreen>
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter your email';
+                  return lang.pleaseEnterYourEmail;
                 }
                 if (!_isValidEmail(value)) {
-                  return 'Please enter a valid email';
+                  return lang.pleaseEnterAValidEmail;
                 }
                 return null;
               },
@@ -326,6 +330,7 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Widget _buildGetOTPButton(Size size, bool isIOS, bool isLightMode) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
       height: 48,
@@ -340,7 +345,7 @@ class _EmailScreenState extends State<EmailScreen>
               child: _isLoading
                   ? const CupertinoActivityIndicator()
                   : Text(
-                      'Get OTP',
+                      lang.getOtp,
                       style: TextStyle(
                         fontSize: min(size.width * 0.04, 16),
                         fontWeight: FontWeight.bold,
@@ -368,7 +373,7 @@ class _EmailScreenState extends State<EmailScreen>
                       ),
                     )
                   : Text(
-                      'Get OTP',
+                      lang.getOtp,
                       style: TextStyle(
                         fontSize: min(size.width * 0.04, 16),
                         fontWeight: FontWeight.bold,
@@ -380,6 +385,7 @@ class _EmailScreenState extends State<EmailScreen>
   }
 
   Widget _buildRegisterLink(Size size, bool isLightMode) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       margin: EdgeInsets.only(top: size.height * 0.04),
       child: Center(
@@ -387,7 +393,7 @@ class _EmailScreenState extends State<EmailScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "Don't Have An Account?",
+              lang.dontHaveAnAccount,
               style: TextStyle(
                 color: isLightMode
                     ? const Color(0xFFA19D9D)
@@ -410,7 +416,7 @@ class _EmailScreenState extends State<EmailScreen>
                 );
               },
               child: Text(
-                "Register",
+                lang.register,
                 style: TextStyle(
                   color: isLightMode
                       ? const Color(0xFF4285F4)

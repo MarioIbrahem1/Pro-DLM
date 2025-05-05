@@ -17,6 +17,7 @@ import 'package:road_helperr/services/gemini_service.dart';
 import 'package:road_helperr/data/car_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AiChat extends StatefulWidget {
   static const String routeName = "ai chat";
@@ -169,7 +170,7 @@ class _AiChatState extends State<AiChat> {
                 ? Colors.white
                 : const Color(0xFF01122A),
             title: Text(
-              TextStrings.appBarAiChat,
+              AppLocalizations.of(context)?.aiChat ?? TextStrings.appBarAiChat,
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.light
                     ? Colors.black
@@ -239,19 +240,25 @@ class _AiChatState extends State<AiChat> {
                           child: Stack(
                             children: [
                               _showWelcomeMessages
-                                  ? const Column(
+                                  ? Column(
                                       children: [
                                         InfoCard(
-                                          title: "Answer of your questions",
-                                          subtitle:
+                                          title: AppLocalizations.of(context)
+                                                  ?.answerOfYourQuestions ??
+                                              "Answer of your questions",
+                                          subtitle: AppLocalizations.of(context)
+                                                  ?.justAskMeAnythingYouLike ??
                                               "( Just ask me anything you like )",
                                           isUserMessage: false,
                                           isWelcomeMessage: true,
                                         ),
-                                        SizedBox(height: 8),
+                                        const SizedBox(height: 8),
                                         InfoCard(
-                                          title: "Available for you all day",
-                                          subtitle:
+                                          title: AppLocalizations.of(context)
+                                                  ?.availableForYouAllDay ??
+                                              "Available for you all day",
+                                          subtitle: AppLocalizations.of(context)
+                                                  ?.feelFreeToAskAnytime ??
                                               "( Feel free to ask me anytime )",
                                           isUserMessage: false,
                                           isWelcomeMessage: true,
@@ -629,7 +636,7 @@ class _AiChatState extends State<AiChat> {
     _scrollToBottom();
 
     // إعداد سياق النظام والتنسيق
-const systemPrompt =
+    const systemPrompt =
         '       أنت مساعد ذكي متخصص في مساعدة سائقي السيارات. استخدم بيانات السيارات المتوفرة وخبرتك لتقديم نصائح دقيقة حول المواصفات، الأداء، القيمة، المشاكل الشائعة، الصيانة، والإصلاحات الطارئة للسيارات. يمكنك تحليل الصور المرفقة للسيارات أو قطع الغيار وتقديم معلومات عنها. أجب على جميع الأسئلة المتعلقة بالسيارات وقيادتها وصيانتها وإصلاحها، حتى في حالات الطوارئ على الطريق. قدم حلولاً عملية للمشاكل التي قد تواجه السائقين. أجب بنفس لغة السؤال. لا تجيب عن اي رسائل لها علاقة بالامراض ,او الساسة او الانتخابات او الدين او احكام الدين او الافلام والمسلسلات ولا متوسيكلات او ملابس او محلات بيع اي منتجات خارج اطار السيارات ولا تجيب عن اي معلومات خارج اطار السيارات بصفة عامة و صانتها وانواعها والموديلات ومشاكلها واصلاحها  ';
     const responseFormat =
         'قدم إجابات عملية ومفيدة. إذا كانت هناك صورة، قم بتحليلها وتقديم معلومات عن السيارة أو القطعة الظاهرة فيها. إذا كان السؤال عن مشكلة في السيارة، قدم حلولاً عملية يمكن تنفيذها.';

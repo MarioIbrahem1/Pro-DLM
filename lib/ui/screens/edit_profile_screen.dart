@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:road_helperr/services/profile_service.dart';
 import 'package:road_helperr/models/profile_data.dart';
 import 'edit_text_field.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   static const String routeName = "EditProfileScreen";
@@ -102,6 +103,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     final isLight = Theme.of(context).brightness == Brightness.light;
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -148,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             elevation: 0,
             centerTitle: true,
             title: Text(
-              "Edit Profile",
+              lang.editProfile,
               style: TextStyle(
                 color: isLight ? Colors.black : Colors.white,
                 fontWeight: FontWeight.bold,
@@ -205,7 +207,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                           SizedBox(height: size.height * 0.02),
                           EditTextField(
-                            label: "First Name",
+                            label: lang.firstName,
                             icon: Icons.person,
                             iconSize: 16,
                             controller: _firstNameController,
@@ -217,7 +219,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             },
                           ),
                           EditTextField(
-                            label: "Last Name",
+                            label: lang.lastName,
                             icon: Icons.person,
                             iconSize: 16,
                             controller: _lastNameController,
@@ -229,14 +231,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             },
                           ),
                           EditTextField(
-                            label: "Phone Number",
+                            label: lang.phoneNumber,
                             icon: Icons.phone,
                             iconSize: 16,
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                           ),
                           EditTextField(
-                            label: "Email",
+                            label: lang.email,
                             icon: Icons.email,
                             iconSize: 16,
                             controller: _emailController,
@@ -267,7 +269,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                                 SizedBox(width: size.width * 0.02),
                                 Text(
-                                  "Car Settings",
+                                  lang.carSettings,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w400,
                                     fontSize: titleSize * 0.7,
@@ -312,7 +314,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  "Update Changes",
+                                  lang.updateChanges,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w500,
                                     fontSize: titleSize * 0.8,
@@ -344,6 +346,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           builder: (context, constraints) {
             final size = MediaQuery.of(context).size;
             final isLight = Theme.of(context).brightness == Brightness.light;
+            var lang = AppLocalizations.of(context)!;
             double iconSize = constraints.maxWidth * 0.06;
             double padding = constraints.maxWidth * 0.04;
             double fontSize = size.width * 0.04;
@@ -360,7 +363,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Column(
                     children: [
                       _buildCarSettingInput(
-                        "Car Number",
+                        lang.carNumber,
                         "assets/images/car_number.png",
                         _carNumberController,
                         isLight,
@@ -369,7 +372,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         fontSize,
                       ),
                       _buildCarSettingInput(
-                        "Car Color",
+                        lang.carColor,
                         "assets/images/car_color.png",
                         _carColorController,
                         isLight,
@@ -378,7 +381,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         fontSize,
                       ),
                       _buildCarSettingInput(
-                        "Car Kind",
+                        lang.carKind,
                         "assets/images/password_icon.png",
                         _carKindController,
                         isLight,

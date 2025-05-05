@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:road_helperr/ui/screens/constants.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AboutScreen extends StatelessWidget {
   static const String routeName = "aboutscreen";
@@ -25,6 +26,7 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -38,22 +40,29 @@ class AboutScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isDarkMode
-                        ? [AppColors.primaryBlue, AppColors.primaryBlue.withOpacity(0.8)]
+                        ? [
+                            AppColors.primaryBlue,
+                            AppColors.primaryBlue.withOpacity(0.8)
+                          ]
                         : [lightPrimary, lightSecondary],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
                 ),
               ),
-              title: Text('About Us',
+              title: Text(
+                lang.aboutUs,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
-                  shadows: isDarkMode ? null : [
-                  Shadow(
-                  blurRadius: 10,
-                  color: Colors.black.withOpacity(0.3),
-                  )],
+                  shadows: isDarkMode
+                      ? null
+                      : [
+                          Shadow(
+                            blurRadius: 10,
+                            color: Colors.black.withOpacity(0.3),
+                          )
+                        ],
                 ),
               ),
             ),
@@ -72,27 +81,27 @@ class AboutScreen extends StatelessWidget {
                 children: [
                   _buildFeatureCard(
                     icon: Icons.medical_services,
-                    title: "Emergency Services",
-                    content: "Quickly locate nearby hospitals, police stations, and emergency contacts",
+                    title: lang.emergencyServices,
+                    content: lang.emergencyServicesDescription,
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 16),
                   _buildFeatureCard(
                     icon: Icons.local_gas_station,
-                    title: "Gas Stations",
-                    content: "Find the nearest fuel stations with real-time availability information",
+                    title: lang.gasStations,
+                    content: lang.gasStationsDescription,
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 16),
                   _buildFeatureCard(
                     icon: Icons.people,
-                    title: "Community Help",
-                    content: "Request assistance from nearby users in case of emergencies",
+                    title: lang.communityHelp,
+                    content: lang.communityHelpDescription,
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    "About the App",
+                    lang.aboutTheApp,
                     style: TextStyle(
                       color: isDarkMode ? Colors.white : lightPrimary,
                       fontSize: 20,
@@ -101,15 +110,16 @@ class AboutScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Our mission is to make your journeys safer and more convenient through innovative technology solutions. "
-                        "The app combines real-time location services with AI to provide intelligent assistance when you need it most.",
+                    lang.missionAndTechnologyDescription,
                     style: TextStyle(
-                      color: isDarkMode ? Colors.white70 : lightPrimary.withOpacity(0.8),
+                      color: isDarkMode
+                          ? Colors.white70
+                          : lightPrimary.withOpacity(0.8),
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  _buildInfoSection(isDarkMode),
+                  _buildInfoSection(isDarkMode, context),
                 ],
               ),
             ),
@@ -138,8 +148,7 @@ class AboutScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon,
-                color: isDarkMode ? Colors.white : lightPrimary,
-                size: 28),
+                color: isDarkMode ? Colors.white : lightPrimary, size: 28),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -157,7 +166,9 @@ class AboutScreen extends StatelessWidget {
                   Text(
                     content,
                     style: TextStyle(
-                      color: isDarkMode ? Colors.white70 : lightPrimary.withOpacity(0.8),
+                      color: isDarkMode
+                          ? Colors.white70
+                          : lightPrimary.withOpacity(0.8),
                       height: 1.4,
                     ),
                   ),
@@ -170,7 +181,8 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoSection(bool isDarkMode) {
+  Widget _buildInfoSection(bool isDarkMode, BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -182,25 +194,27 @@ class AboutScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoRow(Icons.info, "Version: 1.0.0", isDarkMode),
-          _buildInfoRow(Icons.people_alt, "Developer: Road Helper Team", isDarkMode),
+          _buildInfoRow(Icons.info, lang.version, isDarkMode),
+          _buildInfoRow(Icons.people_alt, lang.developer, isDarkMode),
           InkWell(
             onTap: _launchEmail,
             child: _buildInfoRow(
               Icons.email,
-              "Contact: roadhelper200@gmail.com",
+              lang.contactEmail,
               isDarkMode,
               isEmail: true,
             ),
           ),
-          _buildInfoRow(Icons.copyright, "All rights reserved © 2025", isDarkMode),
+          _buildInfoRow(Icons.copyright, lang.allRightsReserved, isDarkMode),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text, bool isDarkMode, {bool isEmail = false}) {
-    final textColor = isDarkMode ? Colors.white70 : const Color(0xFF023A87).withOpacity(0.8);
+  Widget _buildInfoRow(IconData icon, String text, bool isDarkMode,
+      {bool isEmail = false}) {
+    final textColor =
+        isDarkMode ? Colors.white70 : const Color(0xFF023A87).withOpacity(0.8);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -209,7 +223,9 @@ class AboutScreen extends StatelessWidget {
         children: [
           Icon(icon,
               color: isEmail
-                  ? isDarkMode ? Colors.blue[200] : const Color(0xFF023A87)
+                  ? isDarkMode
+                      ? Colors.blue[200]
+                      : const Color(0xFF023A87)
                   : textColor,
               size: 20),
           const SizedBox(width: 12),
@@ -218,7 +234,9 @@ class AboutScreen extends StatelessWidget {
               text,
               style: TextStyle(
                 color: isEmail
-                    ? isDarkMode ? Colors.blue[200] : const Color(0xFF023A87)
+                    ? isDarkMode
+                        ? Colors.blue[200]
+                        : const Color(0xFF023A87)
                     : textColor,
                 decoration: isEmail ? TextDecoration.underline : null,
               ),

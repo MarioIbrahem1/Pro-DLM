@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:road_helperr/providers/settings_provider.dart';
 import 'package:road_helperr/providers/signup_provider.dart';
 import 'package:road_helperr/services/local_notification_service.dart';
 import 'package:road_helperr/ui/screens/about_screen.dart';
@@ -23,14 +24,15 @@ import 'package:road_helperr/ui/screens/emergency_contacts.dart';
 import 'package:road_helperr/models/profile_data.dart';
 import 'package:road_helperr/utils/theme_provider.dart';
 import 'utils/location_service.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SignupProvider()),
-        ChangeNotifierProvider(
-            create: (_) => ThemeProvider()), // أضف ThemeProvider هنا
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: const MyApp(),
     ),
@@ -87,6 +89,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -94,6 +97,15 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeProvider.lightTheme,
       darkTheme: ThemeProvider.darkTheme,
       themeMode: themeProvider.themeMode,
+
+      // Localization setup
+      locale: Locale(settingsProvider.currentLocale),
+      supportedLocales: const [
+        Locale('en'),
+        Locale('ar'),
+      ],
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+
       routes: {
         AboutScreen.routeName: (context) => const AboutScreen(),
         SignupScreen.routeName: (context) => const SignupScreen(),

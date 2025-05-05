@@ -9,6 +9,7 @@ import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/profile_scree
 import 'package:road_helperr/utils/text_strings.dart';
 import '../../../utils/app_colors.dart';
 import 'home_screen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class NotificationScreen extends StatefulWidget {
   static const String routeName = "notification";
@@ -160,6 +161,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     double spacing,
     bool isDesktop,
   ) {
+    var lang = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.light
           ? Colors.white
@@ -179,7 +181,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          TextStrings.notify,
+          lang.noNotifications,
           style: TextStyle(
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.black
@@ -191,7 +193,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           TextButton(
             onPressed: _clearAllNotifications,
             child: Text(
-              TextStrings.clear,
+              lang.clearAll,
               style: TextStyle(
                 color: Theme.of(context).brightness == Brightness.light
                     ? AppColors.getSwitchColor(context)
@@ -219,6 +221,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     double spacing,
     bool isDesktop,
   ) {
+    var lang = AppLocalizations.of(context)!;
     return CupertinoPageScaffold(
       backgroundColor: Theme.of(context).brightness == Brightness.light
           ? Colors.white
@@ -239,7 +242,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         middle: Text(
-          TextStrings.notify,
+          lang.noNotifications,
           style: TextStyle(
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.black
@@ -252,7 +255,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
           padding: EdgeInsets.zero,
           onPressed: _clearAllNotifications,
           child: Text(
-            TextStrings.clear,
+            lang.clearAll,
             style: TextStyle(
               color: Theme.of(context).brightness == Brightness.light
                   ? AppColors.getSwitchColor(context)
@@ -288,6 +291,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final platform = Theme.of(context).platform;
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+    var lang = AppLocalizations.of(context)!;
 
     return Center(
       child: Container(
@@ -311,7 +315,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       ),
                       SizedBox(height: spacing * 3),
                       Text(
-                        TextStrings.noNotify,
+                        lang.noNotifications,
                         style: TextStyle(
                           color:
                               Theme.of(context).brightness == Brightness.light
@@ -324,7 +328,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       ),
                       SizedBox(height: spacing * 1.5),
                       Text(
-                        TextStrings.notifyInbox,
+                        lang.notificationInboxEmpty,
                         style: TextStyle(
                           color:
                               Theme.of(context).brightness == Brightness.light
@@ -370,6 +374,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     double titleSize,
     double subtitleSize,
   ) {
+    var lang = AppLocalizations.of(context)!;
     final request = HelpRequest.fromJson(data);
     final timestamp = request.timestamp;
     final timeString =
@@ -467,6 +472,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     double navBarHeight,
     bool isDesktop,
   ) {
+    var lang = AppLocalizations.of(context)!;
     return Container(
       constraints: BoxConstraints(
         maxWidth: isDesktop ? 1200 : double.infinity,
@@ -480,23 +486,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
         items: [
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.home, size: iconSize),
-            label: 'Home',
+            label: lang.home,
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.location, size: iconSize),
-            label: 'Map',
+            label: lang.map,
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.chat_bubble, size: iconSize),
-            label: 'Chat',
+            label: lang.chat,
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.bell, size: iconSize),
-            label: 'Notifications',
+            label: lang.noNotifications,
           ),
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.person, size: iconSize),
-            label: 'Profile',
+            label: lang.profile,
           ),
         ],
         onTap: (index) {

@@ -4,6 +4,7 @@ import 'package:road_helperr/ui/public_details/ai_button.dart';
 import 'package:road_helperr/utils/app_colors.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import 'package:road_helperr/ui/screens/ai_chat.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class AiWelcomeScreen extends StatelessWidget {
   static const String routeName = "aiwelcomescreen";
@@ -124,7 +125,8 @@ class AiWelcomeScreen extends StatelessWidget {
                 ),
                 SizedBox(height: spacing * 1.5),
                 Text(
-                  TextStrings.text1Ai,
+                  AppLocalizations.of(context)?.providingTheBestAiSolutions ??
+                      TextStrings.text1Ai,
                   maxLines: 2,
                   style: TextStyle(
                     color: mainTextColor,
@@ -138,7 +140,8 @@ class AiWelcomeScreen extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.all(padding * 0.25),
                   child: Text(
-                    TextStrings.text2Ai,
+                    AppLocalizations.of(context)?.readyToCheckCarRepairNeeds ??
+                        TextStrings.text2Ai,
                     style: TextStyle(
                       color: subTextColor,
                       fontSize: subtitleSize,
