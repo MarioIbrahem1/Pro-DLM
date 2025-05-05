@@ -11,13 +11,13 @@ class ProfileImageWidget extends StatefulWidget {
   final VoidCallback? onTap;
 
   const ProfileImageWidget({
-    Key? key,
+    super.key,
     required this.email,
     this.size = 130,
     this.backgroundColor = Colors.white,
     this.iconColor = Colors.white,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   State<ProfileImageWidget> createState() => _ProfileImageWidgetState();

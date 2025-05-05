@@ -629,9 +629,8 @@ class _AiChatState extends State<AiChat> {
     _scrollToBottom();
 
     // إعداد سياق النظام والتنسيق
-    const systemPrompt =
-        'أنت مساعد ذكي متخصص في مساعدة سائقي السيارات. استخدم بيانات السيارات المتوفرة وخبرتك لتقديم نصائح دقيقة حول المواصفات، الأداء، القيمة، المشاكل الشائعة، الصيانة، والإصلاحات الطارئة للسيارات. يمكنك تحليل الصور المرفقة للسيارات أو قطع الغيار وتقديم معلومات عنها. أجب على جميع الأسئلة المتعلقة بالسيارات وقيادتها وصيانتها وإصلاحها، حتى في حالات الطوارئ على الطريق. قدم حلولاً عملية للمشاكل التي قد تواجه السائقين. أجب بنفس لغة السؤال.';
-
+const systemPrompt =
+        '       أنت مساعد ذكي متخصص في مساعدة سائقي السيارات. استخدم بيانات السيارات المتوفرة وخبرتك لتقديم نصائح دقيقة حول المواصفات، الأداء، القيمة، المشاكل الشائعة، الصيانة، والإصلاحات الطارئة للسيارات. يمكنك تحليل الصور المرفقة للسيارات أو قطع الغيار وتقديم معلومات عنها. أجب على جميع الأسئلة المتعلقة بالسيارات وقيادتها وصيانتها وإصلاحها، حتى في حالات الطوارئ على الطريق. قدم حلولاً عملية للمشاكل التي قد تواجه السائقين. أجب بنفس لغة السؤال. لا تجيب عن اي رسائل لها علاقة بالامراض ,او الساسة او الانتخابات او الدين او احكام الدين او الافلام والمسلسلات ولا متوسيكلات او ملابس او محلات بيع اي منتجات خارج اطار السيارات ولا تجيب عن اي معلومات خارج اطار السيارات بصفة عامة و صانتها وانواعها والموديلات ومشاكلها واصلاحها  ';
     const responseFormat =
         'قدم إجابات عملية ومفيدة. إذا كانت هناك صورة، قم بتحليلها وتقديم معلومات عن السيارة أو القطعة الظاهرة فيها. إذا كان السؤال عن مشكلة في السيارة، قدم حلولاً عملية يمكن تنفيذها.';
 
@@ -668,6 +667,11 @@ class _AiChatState extends State<AiChat> {
           systemContext: systemPrompt,
           responseFormat: responseFormat,
         );
+      }
+
+      // تحسين تنسيق الروابط في الرد إذا كانت موجودة
+      if (response != null && response.contains('](#')) {
+        debugPrint('تم العثور على روابط في الرد');
       }
 
       if (response == null || response.isEmpty) {
@@ -896,6 +900,34 @@ class InfoCard extends StatelessWidget {
     return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
   }
 
+  // معالجة النقر على الروابط
+  void _handleLinkTap(BuildContext context, String href) {
+    if (href.startsWith('#')) {
+      // الروابط الداخلية للتطبيق
+      final screenName = href.substring(1); // إزالة علامة #
+
+      switch (screenName) {
+        case 'home':
+          Navigator.pushNamed(context, HomeScreen.routeName);
+          break;
+        case 'map':
+          Navigator.pushNamed(context, MapScreen.routeName);
+          break;
+        case 'notifications':
+          Navigator.pushNamed(context, NotificationScreen.routeName);
+          break;
+        case 'profile':
+          Navigator.pushNamed(context, ProfileScreen.routeName);
+          break;
+        default:
+          // إذا كان الرابط غير معروف، عرض رسالة خطأ
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('صفحة غير متوفرة: $screenName')),
+          );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLightMode = Theme.of(context).brightness == Brightness.light;
@@ -966,6 +998,11 @@ class InfoCard extends StatelessWidget {
                     if (title.isNotEmpty)
                       MarkdownBody(
                         data: title,
+                        onTapLink: (text, href, title) {
+                          if (href != null) {
+                            _handleLinkTap(context, href);
+                          }
+                        },
                         styleSheet: MarkdownStyleSheet(
                           p: TextStyle(
                             fontSize: 16,
@@ -987,6 +1024,15 @@ class InfoCard extends StatelessWidget {
                                 ? Colors.white
                                 : (isLightMode ? Colors.black : Colors.white),
                           ),
+                          a: TextStyle(
+                            fontSize: 16,
+                            color: isUserMessage
+                                ? Colors.lightBlue[100]
+                                : (isLightMode
+                                    ? Colors.blue[700]
+                                    : Colors.lightBlue[300]),
+                            decoration: TextDecoration.underline,
+                          ),
                           code: TextStyle(
                             fontSize: 14,
                             backgroundColor: isUserMessage
@@ -1005,6 +1051,11 @@ class InfoCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       MarkdownBody(
                         data: subtitle,
+                        onTapLink: (text, href, title) {
+                          if (href != null) {
+                            _handleLinkTap(context, href);
+                          }
+                        },
                         styleSheet: MarkdownStyleSheet(
                           p: TextStyle(
                             fontSize: 14,
@@ -1013,6 +1064,15 @@ class InfoCard extends StatelessWidget {
                                 : (isLightMode
                                     ? Colors.black54
                                     : Colors.white70),
+                          ),
+                          a: TextStyle(
+                            fontSize: 14,
+                            color: isUserMessage
+                                ? Colors.lightBlue[100]
+                                : (isLightMode
+                                    ? Colors.blue[700]
+                                    : Colors.lightBlue[300]),
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
