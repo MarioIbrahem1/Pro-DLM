@@ -1373,7 +1373,7 @@ class MapController {
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: const InfoWindow(
             title: 'موقعك الحالي',
-            snippet: 'نقطة بداية المسار',
+            snippet: 'نقطة بداية ',
           ),
           zIndex: 3, // Make it appear above other markers
         );

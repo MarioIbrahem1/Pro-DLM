@@ -3,11 +3,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:road_helperr/models/help_request.dart';
 
 class LocalNotificationService {
-  static final LocalNotificationService _instance = LocalNotificationService._internal();
+  static final LocalNotificationService _instance =
+      LocalNotificationService._internal();
   factory LocalNotificationService() => _instance;
   LocalNotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
   // Initialize the notification service
@@ -27,7 +29,8 @@ class LocalNotificationService {
     );
 
     // Initialize settings for all platforms
-    const InitializationSettings initializationSettings = InitializationSettings(
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
@@ -84,7 +87,8 @@ class LocalNotificationService {
 
     // Show the notification
     await _flutterLocalNotificationsPlugin.show(
-      request.requestId.hashCode, // Use the request ID hash as the notification ID
+      request
+          .requestId.hashCode, // Use the request ID hash as the notification ID
       'Help Request',
       'New help request from ${request.senderName}',
       notificationDetails,

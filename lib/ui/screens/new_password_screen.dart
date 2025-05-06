@@ -4,6 +4,7 @@ import 'signin_screen.dart';
 import 'package:road_helperr/services/api_service.dart';
 import 'package:road_helperr/services/notification_service.dart';
 import 'package:road_helperr/utils/app_colors.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class NewPasswordScreen extends StatefulWidget {
   final String email;
@@ -69,11 +70,13 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
       hasUpperCase && hasSpecialChar && hasNumber && passwordsMatch;
 
   Future<void> _resetPassword() async {
+    final lang = AppLocalizations.of(context)!;
+
     if (_passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty) {
       NotificationService.showValidationError(
         context,
-        'Please enter your new password',
+        lang.pleaseEnterYourPassword,
       );
       return;
     }
@@ -130,7 +133,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
     final isIOS =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
     final size = MediaQuery.of(context).size;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: AppColors.getBackgroundColor(context),
@@ -220,7 +222,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                 color: AppColors.getLabelTextField(context),
               ),
               obscureText: _obscurePassword,
-              placeholder: 'New Password',
+              placeholder: AppLocalizations.of(context)!.newPassword,
               placeholderStyle: TextStyle(
                 color: AppColors.getLabelTextField(context).withOpacity(0.5),
               ),
@@ -250,7 +252,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
               ),
               obscureText: _obscurePassword,
               decoration: InputDecoration(
-                hintText: 'New Password',
+                hintText: AppLocalizations.of(context)!.newPassword,
                 hintStyle: TextStyle(
                   color: AppColors.getLabelTextField(context).withOpacity(0.5),
                 ),
@@ -290,7 +292,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                 color: AppColors.getLabelTextField(context),
               ),
               obscureText: _obscureConfirmPassword,
-              placeholder: 'Rewrite New Password',
+              placeholder: AppLocalizations.of(context)!.rewriteNewPassword,
               placeholderStyle: TextStyle(
                 color: AppColors.getLabelTextField(context).withOpacity(0.5),
               ),
@@ -320,7 +322,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
               ),
               obscureText: _obscureConfirmPassword,
               decoration: InputDecoration(
-                hintText: 'Rewrite New Password',
+                hintText: AppLocalizations.of(context)!.rewriteNewPassword,
                 hintStyle: TextStyle(
                   color: AppColors.getLabelTextField(context).withOpacity(0.5),
                 ),
@@ -365,7 +367,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                'Password must have:',
+                AppLocalizations.of(context)!.passwordMustHave,
                 style: TextStyle(
                   color: mainColor,
                   fontSize: 14,
@@ -375,11 +377,19 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
           ),
           const SizedBox(height: 12),
           _buildRequirement(
-              'One capital letter or more', hasUpperCase, isIOS, context),
+              AppLocalizations.of(context)!.oneCapitalLetterOrMore,
+              hasUpperCase,
+              isIOS,
+              context),
           _buildRequirement(
-              'One special character or more', hasSpecialChar, isIOS, context),
-          _buildRequirement('One number or more', hasNumber, isIOS, context),
-          _buildRequirement('Passwords match', passwordsMatch, isIOS, context),
+              AppLocalizations.of(context)!.oneSpecialCharacterOrMore,
+              hasSpecialChar,
+              isIOS,
+              context),
+          _buildRequirement(AppLocalizations.of(context)!.oneNumberOrMore,
+              hasNumber, isIOS, context),
+          _buildRequirement(AppLocalizations.of(context)!.passwordsMatch,
+              passwordsMatch, isIOS, context),
         ],
       ),
     );
@@ -429,8 +439,8 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
               child: _isLoading
                   ? const CupertinoActivityIndicator(
                       color: CupertinoColors.white)
-                  : const Text(
-                      'Reset Password',
+                  : Text(
+                      AppLocalizations.of(context)!.resetPassword,
                       style: TextStyle(
                         color: AppColors.onPrimaryColor,
                         fontSize: 16,
@@ -459,8 +469,8 @@ class _NewPasswordScreenState extends State<NewPasswordScreen>
                         strokeWidth: 2,
                       ),
                     )
-                  : const Text(
-                      'Reset Password',
+                  : Text(
+                      AppLocalizations.of(context)!.resetPassword,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

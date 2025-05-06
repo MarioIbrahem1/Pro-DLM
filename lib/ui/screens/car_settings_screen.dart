@@ -709,10 +709,10 @@ class _CarSettingsScreenState extends State<CarSettingsScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Already have an account? ',
+                          lang.alreadyHaveAnAccount,
                           style: TextStyle(
                             color: textColor,
-                            fontSize: 16,
+                            fontSize: 14,
                           ),
                         ),
                         TextButton(
@@ -720,7 +720,7 @@ class _CarSettingsScreenState extends State<CarSettingsScreen> {
                             Navigator.pushReplacementNamed(context, '/signin');
                           },
                           child: Text(
-                            'Log In',
+                            lang.login,
                             style: TextStyle(
                               color: accentColor,
                               fontSize: 16,

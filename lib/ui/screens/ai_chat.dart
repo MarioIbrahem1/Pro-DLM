@@ -124,6 +124,7 @@ class _AiChatState extends State<AiChat> {
 
   @override
   Widget build(BuildContext context) {
+    
     final platform = Theme.of(context).platform;
 
     return LayoutBuilder(
@@ -474,6 +475,8 @@ class _AiChatState extends State<AiChat> {
 
   Widget _buildChatInput(BuildContext context, Size size, double titleSize,
       double iconSize, TargetPlatform platform) {
+            var lang = AppLocalizations.of(context)!;
+
     final isLightMode = Theme.of(context).brightness == Brightness.light;
 
     return Container(
@@ -532,7 +535,7 @@ class _AiChatState extends State<AiChat> {
                           : null,
                     ),
                     decoration: InputDecoration(
-                      hintText: TextStrings.hintChatText,
+                      hintText: lang.askMeAnything,
                       hintStyle: TextStyle(
                         fontSize: titleSize * 0.8,
                         color: Colors.black54,

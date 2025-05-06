@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:road_helperr/ui/widgets/custom_message_dialog.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -19,7 +20,7 @@ class NotificationService {
       message: message,
       isError: false,
       onConfirm: onConfirm,
-      confirmButtonText: confirmButtonText ?? 'Continue',
+      confirmButtonText: confirmButtonText ?? "Continue",
     );
   }
 
@@ -36,91 +37,97 @@ class NotificationService {
       message: message,
       isError: true,
       onConfirm: onConfirm,
-      confirmButtonText: confirmButtonText ?? 'Try Again',
+      confirmButtonText: confirmButtonText ?? "Try Again",
     );
   }
 
   // Common success messages
   static void showPasswordResetSuccess(BuildContext context,
       {VoidCallback? onConfirm}) {
+    var lang = AppLocalizations.of(context)!;
     showSuccess(
       context: context,
-      title: 'Password Reset Successful',
-      message:
-          'Your password has been reset successfully. You can now login with your new password.',
+      title: lang.passwordResetSuccessful,
+      message: lang.passwordResetSuccessful,
       onConfirm: onConfirm,
-      confirmButtonText: 'Continue to Login',
+      confirmButtonText: lang.continueToLogin,
     );
   }
 
   static void showLoginSuccess(BuildContext context,
       {VoidCallback? onConfirm}) {
+    var lang = AppLocalizations.of(context)!;
     showSuccess(
       context: context,
-      title: 'Login Successful',
-      message: 'You have successfully logged in to your account.',
+      title: lang.loginSuccessful,
+      message: lang.loginSuccessful,
       onConfirm: onConfirm,
     );
   }
 
   static void showRegistrationSuccess(BuildContext context,
       {VoidCallback? onConfirm}) {
+    var lang = AppLocalizations.of(context)!;
     showSuccess(
       context: context,
-      title: 'Registration Successful',
-      message:
-          'Your account has been created successfully. You can now login with your credentials.',
+      title: lang.registrationSuccessful,
+      message: lang.registrationSuccessful,
       onConfirm: onConfirm,
-      confirmButtonText: 'Continue to Login',
+      confirmButtonText: lang.continueToLogin,
     );
   }
 
   // Common error messages
   static void showPasswordMismatch(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Password Mismatch',
-      message: 'The passwords you entered do not match. Please try again.',
+      title: lang.passwordMismatch,
+      message: lang.passwordMismatch,
     );
   }
 
   static void showInvalidCredentials(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Invalid Credentials',
-      message:
-          'The email or password you entered is incorrect. Please try again.',
+      title: lang.invalidCredentials,
+      message: lang.invalidCredentials,
     );
   }
 
   static void showNetworkError(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Network Error',
-      message: 'Please check your internet connection and try again.',
+      title: lang.networkError,
+      message: lang.networkError,
     );
   }
 
   static void showServerError(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Server Error',
-      message: 'Something went wrong with the server. Please try again later.',
+      title: lang.serverError,
+      message: lang.serverError,
     );
   }
 
   static void showValidationError(BuildContext context, String message) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Validation Error',
+      title: lang.validationError,
       message: message,
     );
   }
 
   static void showGenericError(BuildContext context, String message) {
+    var lang = AppLocalizations.of(context)!;
     showError(
       context: context,
-      title: 'Error',
+      title: lang.error,
       message: message,
     );
   }

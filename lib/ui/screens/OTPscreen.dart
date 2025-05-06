@@ -7,6 +7,7 @@ import 'package:road_helperr/ui/screens/bottomnavigationbar_screes/home_screen.d
 import 'package:road_helperr/services/notification_service.dart';
 import 'dart:async';
 import 'package:road_helperr/utils/app_colors.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class Otp extends StatefulWidget {
   final String email;
@@ -187,6 +188,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     final isLight = Theme.of(context).brightness == Brightness.light;
     final textColor = isLight ? Colors.black : Colors.white;
     final bgMain = isLight
@@ -225,7 +227,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'OTP Verification',
+                  lang.otpVerification,
                   style: TextStyle(
                     color: textColor,
                     fontSize: 24,
@@ -234,7 +236,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Enter OTP sent to\n${widget.email}',
+                  lang.enterOtpSentToEmail(widget.email),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: textColor.withOpacity(0.7),
@@ -307,8 +309,8 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'Verify',
+                        child: Text(
+                          lang.verify,
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.white,
@@ -319,7 +321,7 @@ class _OtpScreenState extends State<Otp> with SingleTickerProviderStateMixin {
                         TextButton(
                           onPressed: _resendOTP,
                           child: Text(
-                            'Resend Code',
+                            lang.resendOtp,
                             style: TextStyle(
                               color: AppColors.getSignAndRegister(context),
                               fontSize: 14,

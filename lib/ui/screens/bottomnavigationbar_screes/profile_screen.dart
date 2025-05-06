@@ -134,6 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Show error message if retry also failed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
+          
                 content: Text(
                     'Could not load profile image. Please try again later.')),
           );

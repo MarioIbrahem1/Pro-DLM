@@ -4,6 +4,7 @@ import 'package:road_helperr/utils/app_colors.dart';
 import 'package:road_helperr/utils/text_strings.dart';
 import 'signin_screen.dart';
 import 'signupScreen.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class OnBoarding extends StatefulWidget {
   static const String routeName = "onboarding";
@@ -55,6 +56,7 @@ class _OnBoardingState extends State<OnBoarding> {
 
   @override
   Widget build(BuildContext context) {
+    var lang = AppLocalizations.of(context)!;
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = MediaQuery.of(context).size;
@@ -115,7 +117,7 @@ class _OnBoardingState extends State<OnBoarding> {
                                     SizedBox(height: responsive.spacing),
                                     _AdaptiveText(
                                       text:
-                                          "If you've got the time,\nwe've got the shine",
+                                          lang.ifYouveGotTheTimeWeveGotTheShine,
                                       style: TextStyle(
                                         fontSize: responsive.titleSize,
                                         color: Theme.of(context)
@@ -127,8 +129,8 @@ class _OnBoardingState extends State<OnBoarding> {
                                     ),
                                     SizedBox(height: responsive.spacing),
                                     _AdaptiveText(
-                                      text:
-                                          "JUST THE PROTECTION\nYOU and your CAR NEED\nSPEAK TO US FOR BEST SERVICES",
+                                      text: lang
+                                          .justTheProtectionYouAndYourCarNeedSpeakToUsForBestServices,
                                       style: TextStyle(
                                         fontSize: responsive.subtitleSize,
                                         color: Theme.of(context)
@@ -306,6 +308,7 @@ class _AdaptiveButtonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = AppLocalizations.of(context)!;
     return Container(
       width: buttonWidth * 2.2,
       height: buttonHeight * 1.3,
@@ -330,7 +333,7 @@ class _AdaptiveButtonRow extends StatelessWidget {
               ),
               onPressed: onSignUpPressed,
               child: Text(
-                TextStrings.textButton,
+                lang.signUp,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontSize: buttonHeight * 0.4,
@@ -353,7 +356,7 @@ class _AdaptiveButtonRow extends StatelessWidget {
               ),
               onPressed: onSignInPressed,
               child: Text(
-                TextStrings.textButton2,
+               lang.signIn,
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onPrimary,
                   fontSize: buttonHeight * 0.4,
